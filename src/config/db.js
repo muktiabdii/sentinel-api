@@ -1,10 +1,11 @@
 const knex = require('knex');
-const { db } = require('./env');
+const { db } = require('./env.js');
 
 const knexInstance = knex({
   client: 'pg',
-  connection: db.url, 
+  connection: db.url,
   pool: { min: 0, max: 10 },
+  searchPath: ['sentinel'],
 });
 
 module.exports = knexInstance;
