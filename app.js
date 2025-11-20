@@ -1,16 +1,11 @@
 require('./src/config/env');
 
 const express = require('express');
-const authRoutes = require('./src/routes/authRoutes');
-const transactionRoutes = require('./src/routes/transactionRoutes');
-const routes = require('./src/routes/index');
-
+const routes = require('./src/routes');
 
 const app = express();
 app.use(express.json());
 
-app.use('/api/auth', authRoutes);
-app.use('/api/transactions', transactionRoutes);
 app.use('/api', routes);
 
 module.exports = app;

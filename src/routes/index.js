@@ -1,13 +1,15 @@
 const express = require('express');
 const router = express.Router();
 const authRoutes = require('./authRoutes');
-const ProductRoutes = require('./productRoutes');
+const productRoutes = require('./productRoutes');
+const transactionRoutes = require('./transactionRoutes');
 
 router.get('/', (req, res) => {
   res.send('✅ EventEase API running');
 });
 
-router.use('/users', authRoutes);
-router.use('/products', ProductRoutes);
+router.use('/auths', authRoutes);
+router.use('/products', productRoutes);
+router.use('/transactions', transactionRoutes);
 
 module.exports = router;
