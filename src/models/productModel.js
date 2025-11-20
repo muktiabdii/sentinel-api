@@ -1,9 +1,19 @@
 const db = require('../config/db');
 
 const Product = {
-  // ambil produk berdasarkan array id
-  async findByIds(ids) {
-    return db('products').whereIn('id', ids).select('id', 'price', 'name', 'sku');
+
+  // fetch all products
+  findAll() {
+    return db('products')
+      .select('id', 'image', 'name', 'memori', 'color', 'price');
+  },
+
+  // fetch product by id
+  findById(id) {
+    return db('products')
+      .select('id', 'image', 'name', 'description', 'price', 'color', 'memori')
+      .where({ id })
+      .first();
   }
 };
 
