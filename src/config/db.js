@@ -3,10 +3,7 @@ const { db } = require('./env.js');
 
 const knexInstance = knex({
   client: 'pg',
-  connection: 
-  {
-    url: db.url
-  },
+  connection: db.url,
   pool: { min: 0, max: 10 },
   searchPath: ['sentinel'],
 });

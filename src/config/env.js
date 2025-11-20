@@ -1,12 +1,11 @@
 const dotenv = require('dotenv');
-const { url } = require('inspector');
 const path = require('path');
 
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 module.exports = {
   db: {
-    url: process.env.DB_URL, 
+    url: process.env.DB_URL
   },
   cloudinary: {
     name: process.env.CLOUDINARY_NAME,
