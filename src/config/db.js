@@ -5,11 +5,7 @@ const knexInstance = knex({
   client: 'pg',
   connection: 
   {
-    host: db.host,
-    user: db.user,
-    password: db.password,
-    database: db.database,
-    port: db.port,
+    url: db.url
   },
   pool: { min: 0, max: 10 },
   searchPath: ['sentinel'],
