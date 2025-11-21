@@ -13,12 +13,11 @@ module.exports = {
       return created[0];
     } catch (err) {
       console.error('productService.createProduct error:', err);
-      // Throw a normalized Error so controller can read message
       throw new Error((err && (err.message || JSON.stringify(err))) || 'Failed to create product');
     }
   },
 
-  async listAll() {
+  async getAll() {
     return Product.findAll();
   },
 
@@ -26,8 +25,16 @@ module.exports = {
     const product = await Product.findById(id);
     if (!product) throw new Error('Product not found');
     return product;
-  }
-,
+  },
+  
+  async getDetailProduct(id) {
+    const product = await Product.findById(id);
+    if (!product) {
+      throw new Error('Product not found');
+    }
+    return product;
+  },
+
   async deleteProduct(id) {
     try {
       const deleted = await Product.deleteById(id);
