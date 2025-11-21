@@ -14,6 +14,13 @@ const Product = {
       .select('id', 'image', 'name', 'description', 'price', 'color', 'memory')
       .where({ id })
       .first();
+  },
+
+  // fetch multiple products by an array of ids
+  findByIds(ids) {
+    return db('products')
+      .whereIn('id', ids)
+      .select('id', 'price', 'name', 'sku', 'warranty_period_months'); 
   }
 };
 
