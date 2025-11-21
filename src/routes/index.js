@@ -8,8 +8,13 @@ router.get('/', (req, res) => {
   res.send('✅ EventEase API running');
 });
 
-router.use('/auths', authRoutes);
+router.use('/auth', authRoutes);
 router.use('/products', productRoutes);
 router.use('/transactions', transactionRoutes);
+
+router.get('/config/cloudinary', (req, res) => {
+  const { cloudinary } = require('../config/env');
+  res.json({ name: cloudinary.name, preset: cloudinary.preset });
+});
 
 module.exports = router;

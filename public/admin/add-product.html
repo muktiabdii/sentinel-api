@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Admin - Add Product</title>
+    <style>
+      body { font-family: Arial, sans-serif; max-width: 800px; margin: 2rem auto; }
+      input, textarea { display: block; width: 100%; margin-bottom: .5rem; padding: .5rem }
+      label { font-weight: bold; margin-top: .75rem }
+      img#preview { max-width: 200px; display:block; margin-top:.5rem }
+    </style>
+  </head>
+  <body>
+    <h1>Add Product</h1>
+
+    <div>
+      <label for="authToken">Auth Token (paste JWT here)</label>
+      <input id="authToken" placeholder="Paste token here or set after login" />
+      <button id="saveToken">Save token</button>
+    </div>
+
+    <form id="productForm">
+      <label for="name">Name</label>
+      <input id="name" required />
+
+      <label for="description">Description</label>
+      <textarea id="description"></textarea>
+
+      <label for="price">Price</label>
+      <input id="price" type="number" step="0.01" required />
+
+      <label for="color">Color</label>
+      <input id="color" />
+
+      <label for="memory">Memory</label>
+      <input id="memory" />
+
+      <label for="image">Image (will upload directly to Cloudinary)</label>
+      <input id="image" type="file" accept="image/*" />
+
+      <input id="imageUrl" type="hidden" />
+      <img id="preview" src="" alt="preview" />
+
+      <button type="submit">Create Product</button>
+    </form>
+
+    <script>
+      async function getCloudConfig() {
+        const res = await fetch('/api/config/cloudinary');
+        if (!res.ok) throw new Error('Failed to fetch cloudinary config');
+        return res.json();
+      }
+
+      document.getElementById('saveToken').addEventListener('click', (e) => {
+        e.preventDefault();
+        const t = document.getElementById('authToken').value.trim();
+        if (t) { localStorage.setItem('authToken', t); alert('Token saved to localStorage'); }
+      });
+
+      (async function () {
+        let cfg = null;
+        try { cfg = await getCloudConfig(); } catch (e) { alert('Could not load Cloudinary config: ' + e.message); return; }
+
+        const cloudName = cfg.name;
+        const preset = cfg.preset;
+
+        const fileInput = document.getElementById('image');
+        fileInput.addEventListener('change', async (ev) => {
+          const file = ev.target.files[0];
+          if (!file) return;
+
+          const fd = new FormData();
+          fd.append('file', file);
+          fd.append('upload_preset', preset);
+
+          const url = `https://api.cloudinary.com/v1_1/${cloudName}/upload`;
+          try {
+            const r = await fetch(url, { method: 'POST', body: fd });
+            const data = await r.json();
+            if (data.secure_url) {
+              document.getElementById('imageUrl').value = data.secure_url;
+              document.getElementById('preview').src = data.secure_url;
+            } else {
+              console.error(data);
+              alert('Upload failed — check console for details');
+            }
+          } catch (err) {
+            console.error(err);
+            alert('Upload error');
+          }
+        });
+
+        document.getElementById('productForm').addEventListener('submit', async (ev) => {
+          ev.preventDefault();
+
+          const payload = {
+            name: document.getElementById('name').value,
+            description: document.getElementById('description').value,
+            price: parseFloat(document.getElementById('price').value) || 0,
+            color: document.getElementById('color').value,
+            memory: document.getElementById('memory').value,
+            image: document.getElementById('imageUrl').value
+          };
+
+          if (!payload.image) { alert('Please upload an image first'); return; }
+
+          const token = localStorage.getItem('authToken') || '';
+
+          try {
+            const r = await fetch('/api/products', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+              },
+              body: JSON.stringify(payload)
+            });
+            const res = await r.json();
+            if (r.ok) {
+              alert('Product created');
+              console.log(res);
+            } else {
+              console.error(res);
+              alert('Error creating product: ' + (res.error || JSON.stringify(res)));
+            }
+          } catch (err) {
+            console.error(err);
+            alert('Request failed');
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>

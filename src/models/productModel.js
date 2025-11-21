@@ -22,6 +22,12 @@ const Product = {
       .whereIn('id', ids)
       .select('id', 'price', 'name', 'sku', 'warranty_period_months'); 
   }
+,
+  async create(productData) {
+    return db('products')
+      .insert(productData)
+      .returning(['id', 'image', 'name', 'description', 'price', 'color', 'memory']);
+  }
 };
 
 module.exports = Product;
