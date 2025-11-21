@@ -1,5 +1,6 @@
 const Transaction = require('../models/transactionModel');
 const Product = require('../models/productModel');
+const blockchainService = require('./blockchainService');
 
 module.exports = {
   async createOrder(userId, { items, shipping_address, payment_method }) {
