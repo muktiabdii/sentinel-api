@@ -45,7 +45,7 @@ module.exports = {
       payment_status: 'pending',
       order_status: 'processing',
       payment_method: payment_method,
-      // payment_gateway_references: nanti diisi setelah integrasi midtrans
+      payment_gateway_references: `REF-${Date.now()}`,
     };
 
     // simpan ke DB via Model
