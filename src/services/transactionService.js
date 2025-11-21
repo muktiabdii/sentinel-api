@@ -54,6 +54,24 @@ module.exports = {
       transactionDetailsPayload
     );
 
+    // loop setiap barang yang dibeli untuk dibuatkan garansinya
+    for (const itemDetail of transactionDetailsPayload) {
+        // Buat Serial Number Unik (Gabungan ID Produk + Waktu)
+        const serialNumber = `SN-${itemDetail.product_id}-${Date.now()}`;
+        
+        // Set Garansi 1 Tahun dari sekarang (Unix Timestamp)
+        const expiryDate = Math.floor(Date.now() / 1000) + (365 * 24 * 60 * 60);
+
+        // Panggil Blockchain Service (Fire and Forget / Await)
+        // Kita pakai await supaya log-nya kelihatan di terminal
+        const txHash = await blockchainService.createWarranty(serialNumber, expiryDate);
+        
+        if (txHash) {
+            console.log(`🎉 Garansi Barang ID ${itemDetail.product_id} Aman! Hash: ${txHash}`);
+            // TODO (Nanti): Update kolom 'blockchain_tx_hash' di tabel database kamu
+        }
+    }
+
     return newTransaction;
   },
 
