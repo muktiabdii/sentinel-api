@@ -1,0 +1,95 @@
+{
+  "info": {
+    "name": "Sentinel API - Auth",
+    "_postman_id": "b6f8c8b6-0000-4000-8000-000000000000",
+    "description": "Postman collection untuk endpoint otentikasi (register & login) pada Sentinel API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Register",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"password\": \"P@ssw0rd\",\n  \"phone_number\": \"081234567890\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "register"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Login",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"john@example.com\",\n  \"password\": \"P@ssw0rd\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "login"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code is 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "var json = {};",
+              "try { json = pm.response.json(); } catch (e) { json = {}; }",
+              "if (json.token) {",
+              "    pm.environment.set('authToken', json.token);",
+              "    console.log('Stored authToken in environment');",
+              "} else {",
+              "    pm.test('Token exists in response', function () {",
+              "        pm.expect(json.token).to.be.a('string');",
+              "    });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    }
+  ]
+}
