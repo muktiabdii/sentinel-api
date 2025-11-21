@@ -40,7 +40,10 @@
       <input id="image" type="file" accept="image/*" />
 
       <input id="imageUrl" type="hidden" />
-      <img id="preview" src="" alt="preview" />
+      <div id="progressWrapper" style="display:none; width:100%; background:#eee; border-radius:4px; overflow:hidden; margin-top:.5rem">
+        <div id="uploadProgress" style="width:0%; height:18px; background:#4caf50; color:#fff; text-align:center; font-size:12px; line-height:18px;">0%</div>
+      </div>
+      <img id="preview" src="" alt="preview" style="display:none; max-width:200px; margin-top:.5rem" />
 
       <button type="submit">Create Product</button>
     </form>
@@ -66,29 +69,59 @@
         const preset = cfg.preset;
 
         const fileInput = document.getElementById('image');
-        fileInput.addEventListener('change', async (ev) => {
+        fileInput.addEventListener('change', (ev) => {
           const file = ev.target.files[0];
           if (!file) return;
+
+          const progressWrapper = document.getElementById('progressWrapper');
+          const progressBar = document.getElementById('uploadProgress');
+          const preview = document.getElementById('preview');
+          preview.style.display = 'none';
+          progressWrapper.style.display = 'block';
+          progressBar.style.width = '0%';
+          progressBar.textContent = '0%';
 
           const fd = new FormData();
           fd.append('file', file);
           fd.append('upload_preset', preset);
 
           const url = `https://api.cloudinary.com/v1_1/${cloudName}/upload`;
-          try {
-            const r = await fetch(url, { method: 'POST', body: fd });
-            const data = await r.json();
-            if (data.secure_url) {
-              document.getElementById('imageUrl').value = data.secure_url;
-              document.getElementById('preview').src = data.secure_url;
-            } else {
-              console.error(data);
-              alert('Upload failed — check console for details');
+          const xhr = new XMLHttpRequest();
+          xhr.open('POST', url);
+          xhr.upload.onprogress = function (e) {
+            if (e.lengthComputable) {
+              const percent = Math.round((e.loaded / e.total) * 100);
+              progressBar.style.width = percent + '%';
+              progressBar.textContent = percent + '%';
             }
-          } catch (err) {
-            console.error(err);
+          };
+          xhr.onload = function () {
+            progressWrapper.style.display = 'none';
+            if (xhr.status >= 200 && xhr.status < 300) {
+              try {
+                const data = JSON.parse(xhr.responseText);
+                if (data.secure_url) {
+                  document.getElementById('imageUrl').value = data.secure_url;
+                  preview.src = data.secure_url;
+                  preview.style.display = 'block';
+                } else {
+                  console.error(data);
+                  alert('Upload failed — check console for details');
+                }
+              } catch (err) {
+                console.error(err);
+                alert('Upload parse error');
+              }
+            } else {
+              console.error(xhr.responseText);
+              alert('Upload failed: ' + xhr.statusText);
+            }
+          };
+          xhr.onerror = function () {
+            progressWrapper.style.display = 'none';
             alert('Upload error');
-          }
+          };
+          xhr.send(fd);
         });
 
         document.getElementById('productForm').addEventListener('submit', async (ev) => {
