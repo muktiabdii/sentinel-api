@@ -27,4 +27,15 @@ module.exports = {
     if (!product) throw new Error('Product not found');
     return product;
   }
+,
+  async deleteProduct(id) {
+    try {
+      const deleted = await Product.deleteById(id);
+      if (!deleted || deleted.length === 0) throw new Error('Product not found');
+      return deleted[0];
+    } catch (err) {
+      console.error('productService.deleteProduct error:', err);
+      throw new Error((err && (err.message || JSON.stringify(err))) || 'Failed to delete product');
+    }
+  }
 };

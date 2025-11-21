@@ -28,6 +28,13 @@ const Product = {
       .insert(productData)
       .returning(['id', 'image', 'name', 'description', 'price', 'color', 'memory']);
   }
+,
+  async deleteById(id) {
+    return db('products')
+      .where({ id })
+      .del()
+      .returning(['id']);
+  }
 };
 
 module.exports = Product;

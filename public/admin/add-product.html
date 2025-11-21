@@ -48,6 +48,11 @@
       <button type="submit">Create Product</button>
     </form>
 
+    <hr />
+    <h2>Products</h2>
+    <div id="productsList">Loading products...</div>
+
+
     <script>
       async function getCloudConfig() {
         const res = await fetch('/api/config/cloudinary');
@@ -124,6 +129,72 @@
           xhr.send(fd);
         });
 
+        const productsListEl = document.getElementById('productsList');
+
+        async function fetchProducts() {
+          productsListEl.textContent = 'Loading products...';
+          try {
+            const r = await fetch('/api/products');
+            const json = await r.json();
+            const products = json.products || [];
+            if (products.length === 0) {
+              productsListEl.innerHTML = '<em>No products yet</em>';
+              return;
+            }
+
+            const rows = products.map(p => {
+              return `
+                <div style="display:flex;align-items:center;margin:8px 0;border:1px solid #ddd;padding:8px;border-radius:6px">
+                  <img src="${p.image || ''}" style="width:80px;height:80px;object-fit:cover;margin-right:12px" />
+                  <div style="flex:1">
+                    <div style="font-weight:bold">${p.name}</div>
+                    <div style="color:#666">${p.memory || ''} • ${p.color || ''}</div>
+                    <div style="color:#111">Rp ${p.price || 0}</div>
+                  </div>
+                  <div>
+                    <button data-id="${p.id}" class="deleteBtn" style="background:#e74c3c;color:#fff;border:none;padding:8px 10px;border-radius:4px;cursor:pointer">Delete</button>
+                  </div>
+                </div>
+              `;
+            }).join('');
+
+            productsListEl.innerHTML = rows;
+
+            // attach delete handlers
+            document.querySelectorAll('.deleteBtn').forEach(btn => {
+              btn.addEventListener('click', async (ev) => {
+                const id = ev.currentTarget.getAttribute('data-id');
+                if (!confirm('Delete this product?')) return;
+                const token = localStorage.getItem('authToken') || '';
+                try {
+                  const r = await fetch(`/api/products/${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                    }
+                  });
+                  const res = await r.json();
+                  if (r.ok) {
+                    alert('Deleted');
+                    fetchProducts();
+                  } else {
+                    alert('Delete failed: ' + (res.error || JSON.stringify(res)));
+                  }
+                } catch (err) {
+                  console.error(err);
+                  alert('Request failed');
+                }
+              });
+            });
+          } catch (err) {
+            console.error(err);
+            productsListEl.textContent = 'Failed to load products';
+          }
+        }
+
+        // initial load
+        fetchProducts();
+
         document.getElementById('productForm').addEventListener('submit', async (ev) => {
           ev.preventDefault();
 
@@ -153,6 +224,8 @@
             if (r.ok) {
               alert('Product created');
               console.log(res);
+              // refresh list
+              fetchProducts();
             } else {
               console.error(res);
               alert('Error creating product: ' + (res.error || JSON.stringify(res)));

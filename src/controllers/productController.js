@@ -47,4 +47,14 @@ module.exports = {
       res.status(404).json({ error: err.message });
     }
   }
+  ,
+  async remove(req, res) {
+    try {
+      const { id } = req.params;
+      const deleted = await productService.deleteProduct(id);
+      res.json({ message: 'Product deleted', id: deleted.id || deleted });
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  }
 };
