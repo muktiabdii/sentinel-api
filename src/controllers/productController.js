@@ -18,20 +18,5 @@ module.exports = {
     } catch (err) {
       res.status(404).json({ success: false, message: err.message });
     }
-  },
-
-  async createProduct(req, res) {
-    try {
-      // req.body sekarang sudah berisi { name: "...", image: "https://..." }
-      const newProduct = await ProductService.addProduct(req.body);
-      
-      res.status(201).json({
-        success: true,
-        message: 'Product created successfully',
-        data: newProduct
-      });
-    } catch (err) {
-      res.status(400).json({ success: false, message: err.message });
-    }
   }
 };
