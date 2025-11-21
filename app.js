@@ -12,6 +12,14 @@ app.use(express.json());
 // agar Vercel bisa menemukan folder 'public' dengan tepat
 app.use(express.static(path.join(process.cwd(), 'public')));
 
+app.get('/api/ping', (req, res) => {
+  res.json({ 
+    status: "Hidup!", 
+    message: "Server app.js bisa diakses",
+    env_cloudinary: process.env.CLOUDINARY_NAME ? "Ada" : "Kosong"
+  });
+});
+
 // Routes API
 app.use('/api', routes);
 
