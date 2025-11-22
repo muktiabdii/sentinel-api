@@ -18,9 +18,9 @@ module.exports = {
     expiresIn: process.env.JWT_EXPIRES_IN || '1d',
   },
   midtrans: {
-    merchantId: process.env.MIDTRANS_MERCHANT_ID,
-    clientKey: process.env.MIDTRANS_CLIENT_KEY,
-    serverKey: process.env.MIDTRANS_SERVER_KEY,
-    isProduction: process.env.MIDTRANS_IS_PRODUCTION,
-  },
+  merchantId: process.env.MIDTRANS_MERCHANT_ID,
+  clientKey: process.env.MIDTRANS_CLIENT_KEY,
+  serverKey: process.env.MIDTRANS_SERVER_KEY,
+  isProduction: process.env.MIDTRANS_IS_PRODUCTION === 'true',
+  }
 };
