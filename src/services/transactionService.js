@@ -114,26 +114,9 @@ module.exports = {
     await Transaction.updatePaymentStatus(order_id, payment_status);
 
     if (payment_status === 'paid') {
-    // 1 minute later -> in delivery
-    setTimeout(async () => {
-      try {
-        await Transaction.updateOrderStatus(order_id, 'in delivery');
-
-        // 1 minute later -> completed
-        setTimeout(async () => {
-          try {
-            await Transaction.updateOrderStatus(order_id, 'completed');
-            console.log(`Order ${order_id} status updated to "completed".`);
-          } catch (err) {
-            console.error(`Failed to update order ${order_id} to "completed":`, err);
-          }
-        }, 5000);
-
-      } catch (err) {
-        console.error(`Failed to update order ${order_id} to "in delivery":`, err);
-      }
-    }, 5000);
-  }
+      // 1 minute later -> in delivery
+      await Transaction.updateOrderStatus(order_id, 'completed');
+    }
 
     return payment_status;
   },
