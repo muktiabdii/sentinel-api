@@ -33,6 +33,12 @@ const Transaction = {
       .update({ payment_status: paymentStatus });
   },
 
+  async updateOrderStatus(orderId, orderStatus) {
+    return db("transactions")
+      .where({ payment_gateway_references: orderId })
+      .update({ order_status: orderStatus });
+  },
+
   // ambil history transaksi user
   async findByUserId(userId) {
     return db("transactions")
