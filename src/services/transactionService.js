@@ -127,12 +127,12 @@ module.exports = {
           } catch (err) {
             console.error(`Failed to update order ${order_id} to "completed":`, err);
           }
-        }, 60 * 1000);
+        }, 5000);
 
       } catch (err) {
         console.error(`Failed to update order ${order_id} to "in delivery":`, err);
       }
-    }, 60 * 1000);
+    }, 5000);
   }
 
     return payment_status;
