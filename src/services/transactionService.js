@@ -2,7 +2,7 @@ const Transaction = require('../models/transactionModel');
 const Product = require('../models/productModel');
 const db = require('../config/db');
 const blockchainService = require('./blockchainService');
-const snap = require('./midtransService');
+const { snap } = require('./midtransService');
 
 module.exports = {
   async createOrder(userId, { items, shipping_address, payment_method }) {
