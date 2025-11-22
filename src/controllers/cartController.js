@@ -40,7 +40,7 @@ module.exports = {
   async deleteItem(req, res) {
     try {
       const userId = req.user.id;
-      const { productId } = req.params;
+      const { productId } = req.body;
 
       await cartService.deleteItem(userId, productId);
       res.json({ success: true, message: "Item removed from cart" });
