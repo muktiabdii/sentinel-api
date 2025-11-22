@@ -8,6 +8,6 @@ router.use(authMiddleware);
 
 router.post('/', transactionController.create);       
 router.get('/', transactionController.getHistory);      
-router.get('/:id', transactionController.getDetail);     
+router.get('/:id', transactionController.getDetail);
 
 module.exports = router;

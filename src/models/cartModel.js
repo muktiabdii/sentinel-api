@@ -46,6 +46,7 @@ module.exports = {
       .join('products as p', 'ci.product_id', 'p.id')
       .select(
         'ci.id',
+        'p.product_id',
         'p.name',
         'p.image',
         'p.price',
