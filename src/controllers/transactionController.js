@@ -21,6 +21,21 @@ module.exports = {
     }
   },
 
+  async midtransNotification(req, res) {
+    try {
+      // verifikasi payload dari Midtrans
+      const statusResponse = await midtransService.notification(req.body);
+
+      // panggil service untuk update DB
+      const paymentStatus = await transactionService.handleMidtransNotification(statusResponse);
+
+      res.status(200).send('OK');
+    } catch (err) {
+      console.error(err);
+      res.status(500).send('Error');
+    }
+  },
+
   async getHistory(req, res) {
     try {
       const userId = req.user.id;

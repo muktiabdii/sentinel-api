@@ -26,6 +26,12 @@ const Transaction = {
       return newTransaction;
     });
   },
+  
+  async updatePaymentStatus(orderId, paymentStatus) {
+    return db("transactions")
+      .where({ payment_gateway_references: orderId })
+      .update({ payment_status: paymentStatus });
+  },
 
   // ambil history transaksi user
   async findByUserId(userId) {

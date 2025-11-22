@@ -97,6 +97,24 @@ module.exports = {
     };
   },
 
+  async handleMidtransNotification(payload) {
+    const { order_id, transaction_status, fraud_status } = payload;
+
+    let payment_status = 'pending';
+    if ((transaction_status === 'capture' && fraud_status === 'accept') || transaction_status === 'settlement') {
+      payment_status = 'paid';
+    } 
+    
+    else if (['deny', 'cancel', 'expire'].includes(transaction_status)) {
+      payment_status = 'failed';
+    }
+
+    // Update DB lewat model
+    await Transaction.updatePaymentStatus(order_id, payment_status);
+
+    return payment_status;
+  },
+
   async getUserHistory(userId) {
     return await Transaction.findByUserId(userId);
   },

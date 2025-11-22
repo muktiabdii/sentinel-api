@@ -7,4 +7,19 @@ const snap = new midtransClient.Snap({
     clientKey: env.midtrans.clientKey
 });
 
-module.exports = snap;
+// Fungsi untuk memverifikasi payload dari Midtrans
+async function notification(payload) {
+    const core = new midtransClient.CoreApi({
+        isProduction: env.midtrans.isProduction,
+        serverKey: env.midtrans.serverKey,
+        clientKey: env.midtrans.clientKey
+    });
+
+    const statusResponse = await core.transaction.notification(payload);
+    return statusResponse;
+}
+
+module.exports = {
+    snap,
+    notification
+};
