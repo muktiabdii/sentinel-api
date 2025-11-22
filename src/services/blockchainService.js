@@ -1,24 +1,20 @@
 const { ethers } = require('ethers');
-const fs = require('fs');
-const path = require('path');
 require('dotenv').config();
 
-// 1. Setup Konfigurasi
-const abiPath = path.join(__dirname, '../config/abi.json');
+// Load ABI dari file JSON
 let contractABI;
-
 try {
-    contractABI = JSON.parse(fs.readFileSync(abiPath, 'utf8'));
+    contractABI = require('../config/abi.json'); 
 } catch (error) {
-    console.error("❌ Gagal membaca file ABI. Pastikan src/config/abi.json ada!");
+    console.error("❌ Gagal load ABI. Pastikan file src/config/abi.json ada!", error);
     contractABI = []; 
 }
 
-// 2. Inisialisasi Provider & Wallet
+// Inisialisasi Provider & Wallet
 const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
 const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY, provider);
 
-// 3. Inisialisasi Contract
+// Inisialisasi Contract
 const sentinelContract = new ethers.Contract(
     process.env.SMART_CONTRACT_ADDRESS,
     contractABI,
@@ -26,6 +22,7 @@ const sentinelContract = new ethers.Contract(
 );
 
 module.exports = {
+    // Buat Garansi (WRITE) - Membayar Gas Fee
     async createWarranty(serialNumber, expiryDate) {
         try {
             console.log(`🔗 [Blockchain] Memulai proses minting untuk SN: ${serialNumber}...`);
@@ -40,10 +37,34 @@ module.exports = {
             
             console.log(`✅ [Blockchain] Sukses! Tercatat di Block: ${receipt.blockNumber}`);
             
-            return tx.hash; // Kembalikan hash buat disimpan di DB
+            return tx.hash; 
         } catch (error) {
             console.error("❌ [Blockchain Error]:", error.message);
             return null; 
+        }
+    },
+
+    // Ambil Detail Transaksi (READ)
+    async getTransactionDetails(txHash) {
+        try {
+            if (!txHash) return null;
+
+            // Ambil Data Transaksi
+            const tx = await provider.getTransaction(txHash);
+            if (!tx) return null; 
+
+            // Ambil Data Block (untuk dapat waktu mining yang akurat)
+            const block = await provider.getBlock(tx.blockNumber);
+
+            return {
+                blockNumber: tx.blockNumber,
+                timestamp: block.timestamp, 
+                from: tx.from,
+                status: "Confirmed"
+            };
+        } catch (error) {
+            console.error("⚠️ Gagal ambil info blockchain:", error.message);
+            return null;
         }
     }
 };

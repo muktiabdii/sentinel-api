@@ -1,5 +1,6 @@
 const Transaction = require('../models/transactionModel');
 const Product = require('../models/productModel');
+const Warranty = require('../models/warrantyModel'); // 👈 Import Model Baru
 const blockchainService = require('./blockchainService');
 const snap = require('../config/midtrans').default;
 
@@ -40,7 +41,7 @@ module.exports = {
     const transactionPayload = {
       user_id: userId,
       total_amount: totalAmount,
-      payment_status: 'pending',
+      payment_status: 'pending', 
       order_status: 'processing',
       payment_method,
       payment_gateway_references: `REF-${Date.now()}`,
