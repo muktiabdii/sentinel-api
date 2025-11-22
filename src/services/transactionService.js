@@ -1,8 +1,8 @@
 const Transaction = require('../models/transactionModel');
 const Product = require('../models/productModel');
-const Warranty = require('../models/warrantyModel'); // 👈 Import Model Baru
+const db = require('../config/db');
 const blockchainService = require('./blockchainService');
-const snap = require('../config/midtrans').default;
+const snap = require('./midtransService');
 
 module.exports = {
   async createOrder(userId, { items, shipping_address, payment_method }) {
