@@ -21,6 +21,6 @@ module.exports = {
     merchantId: process.env.MIDTRANS_MERCHANT_ID,
     clientKey: process.env.MIDTRANS_CLIENT_KEY,
     serverKey: process.env.MIDTRANS_SERVER_KEY,
-    isProduction: process.env.MIDTRANS_IS_PRODUCTION === 'true',
+    isProduction: process.env.MIDTRANS_IS_PRODUCTION,
   },
 };
