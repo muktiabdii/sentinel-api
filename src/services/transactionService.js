@@ -1,6 +1,7 @@
 const Transaction = require('../models/transactionModel');
 const Product = require('../models/productModel');
 const blockchainService = require('./blockchainService');
+const snap = require('../config/midtrans').default;
 
 module.exports = {
   async createOrder(userId, { items, shipping_address, payment_method }) {
@@ -9,20 +10,17 @@ module.exports = {
       throw new Error('Cart is empty');
     }
 
-    // ambil data produk asli dari DB untuk validasi harga
+    // Ambil data produk
     const productIds = items.map(i => i.productId);
     const products = await Product.findByIds(productIds);
-
-    // map produk biar gampang dicari
     const productMap = new Map(products.map(p => [p.id, p]));
 
     let totalAmount = 0;
     const transactionDetailsPayload = [];
 
-    // loop items untuk hitung total & siapkan data detail
     for (const item of items) {
       const product = productMap.get(item.productId);
-      
+
       if (!product) {
         throw new Error(`Product with ID ${item.productId} not found`);
       }
@@ -34,46 +32,68 @@ module.exports = {
         product_id: product.id,
         quantity: item.quantity,
         price_at_purchase: product.price,
-        shipping_address: shipping_address,
-        // estimated_delivery: bisa dihitung disini + 3 hari misalnya
+        shipping_address
       });
     }
 
-    // siapkan payload Header Transaksi
+    // Payload Header (DB)
     const transactionPayload = {
       user_id: userId,
       total_amount: totalAmount,
       payment_status: 'pending',
       order_status: 'processing',
-      payment_method: payment_method,
+      payment_method,
       payment_gateway_references: `REF-${Date.now()}`,
     };
 
-    // simpan ke DB via Model
+    // Simpan database
     const newTransaction = await Transaction.createTransaction(
-      transactionPayload, 
+      transactionPayload,
       transactionDetailsPayload
     );
 
-    // loop setiap barang yang dibeli untuk dibuatkan garansinya
-    for (const itemDetail of transactionDetailsPayload) {
-        // Buat Serial Number Unik (Gabungan ID Produk + Waktu)
-        const serialNumber = `SN-${itemDetail.product_id}-${Date.now()}`;
-        
-        // Set Garansi 1 Tahun dari sekarang (Unix Timestamp)
-        const expiryDate = Math.floor(Date.now() / 1000) + (365 * 24 * 60 * 60);
+    // === MIDTRANS SNAP INTEGRATION ===
+    const snapPayload = {
+      transaction_details: {
+        order_id: newTransaction.payment_gateway_references,
+        gross_amount: totalAmount,
+      },
+      customer_details: {
+        user_id: userId,
+        shipping_address,
+      },
+      item_details: items.map(item => ({
+        id: item.productId,
+        price: productMap.get(item.productId).price,
+        quantity: item.quantity,
+        name: productMap.get(item.productId).name,
+      })),
+    };
 
-        // Panggil Blockchain Service (Fire and Forget / Await)
-        // Kita pakai await supaya log-nya kelihatan di terminal
-        const txHash = await blockchainService.createWarranty(serialNumber, expiryDate);
-        
-        if (txHash) {
-            console.log(`🎉 Garansi Barang ID ${itemDetail.product_id} Aman! Hash: ${txHash}`);
-            // TODO (Nanti): Update kolom 'blockchain_tx_hash' di tabel database kamu
-        }
+    // Generate Token
+    const snapResponse = await snap.createTransaction(snapPayload);
+
+    // Simpan token ke DB
+    await db('transactions')
+      .where({ id: newTransaction.id })
+      .update({
+        midtrans_token: snapResponse.token,
+        midtrans_redirect_url: snapResponse.redirect_url
+      });
+
+    // Blockchain Warranty (opsional)
+    for (const itemDetail of transactionDetailsPayload) {
+      const serialNumber = `SN-${itemDetail.product_id}-${Date.now()}`;
+      const expiryDate = Math.floor(Date.now() / 1000) + (365 * 24 * 60 * 60);
+      const txHash = await blockchainService.createWarranty(serialNumber, expiryDate);
+      console.log(`Warranty Created: `, txHash);
     }
 
-    return newTransaction;
+    return {
+      ...newTransaction,
+      midtrans_token: snapResponse.token,
+      redirect_url: snapResponse.redirect_url
+    };
   },
 
   async getUserHistory(userId) {
