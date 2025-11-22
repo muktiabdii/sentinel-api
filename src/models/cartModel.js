@@ -50,7 +50,7 @@ module.exports = {
         'p.image',
         'p.price',
         'p.color',
-        'p.memori',
+        'p.memory',
         'ci.quantity'
       )
       .where('ci.cart_id', cartId);
