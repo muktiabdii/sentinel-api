@@ -1,5 +1,5 @@
-import midtransClient from 'midtrans-client';
-import env from '../config/env.js';
+const midtransClient = require('midtrans-client');
+const env = require('../config/env');
 
 const snap = new midtransClient.Snap({
     isProduction: env.midtrans.isProduction,
@@ -7,4 +7,4 @@ const snap = new midtransClient.Snap({
     clientKey: env.midtrans.clientKey
 });
 
-export default snap;
+module.exports = snap;
