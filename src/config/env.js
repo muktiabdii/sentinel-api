@@ -3,6 +3,14 @@ const path = require('path');
 
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
+console.log("MIDTRANS CONFIG = ", {
+  merchantId: process.env.MIDTRANS_MERCHANT_ID,
+  clientKey: process.env.MIDTRANS_CLIENT_KEY,
+  serverKey: process.env.MIDTRANS_SERVER_KEY,
+  isProduction: process.env.MIDTRANS_IS_PRODUCTION
+});
+
+
 module.exports = {
   db: {
     url: process.env.DB_URL
