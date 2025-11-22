@@ -1,5 +1,6 @@
 const Transaction = require('../models/transactionModel');
 const Product = require('../models/productModel');
+const Warranty = require('../models/warrantyModel'); // 👈 Import Model Baru
 const blockchainService = require('./blockchainService');
 
 module.exports = {
@@ -9,17 +10,17 @@ module.exports = {
       throw new Error('Cart is empty');
     }
 
-    // ambil data produk asli dari DB untuk validasi harga
+    // ambil data produk untuk validasi & info garansi
     const productIds = items.map(i => i.productId);
     const products = await Product.findByIds(productIds);
 
-    // map produk biar gampang dicari
+    // map biar gampang ambil info product 
     const productMap = new Map(products.map(p => [p.id, p]));
 
     let totalAmount = 0;
     const transactionDetailsPayload = [];
 
-    // loop items untuk hitung total & siapkan data detail
+    // loop items untuk hitung total
     for (const item of items) {
       const product = productMap.get(item.productId);
       
@@ -35,45 +36,75 @@ module.exports = {
         quantity: item.quantity,
         price_at_purchase: product.price,
         shipping_address: shipping_address,
-        // estimated_delivery: bisa dihitung disini + 3 hari misalnya
       });
     }
 
-    // siapkan payload Header Transaksi
+    // simpan Transaksi Utama 
     const transactionPayload = {
       user_id: userId,
       total_amount: totalAmount,
-      payment_status: 'pending',
+      payment_status: 'pending', 
       order_status: 'processing',
       payment_method: payment_method,
-      payment_gateway_references: `REF-${Date.now()}`,
+      payment_gateway_references: `REF-${Date.now()}`, // Placeholder sementara
     };
 
-    // simpan ke DB via Model
     const newTransaction = await Transaction.createTransaction(
       transactionPayload, 
       transactionDetailsPayload
     );
 
-    // loop setiap barang yang dibeli untuk dibuatkan garansinya
+    // proses blockchain warranty untuk tiap item
+    const warrantyResults = [];
+
     for (const itemDetail of transactionDetailsPayload) {
-        // Buat Serial Number Unik (Gabungan ID Produk + Waktu)
+        // Ambil info produk lagi untuk tahu durasi garansi
+        const productInfo = productMap.get(itemDetail.product_id);
+        const warrantyMonths = productInfo.warranty_period_months || 12;
+
+        // Generate Serial Number Unik
         const serialNumber = `SN-${itemDetail.product_id}-${Date.now()}`;
         
-        // Set Garansi 1 Tahun dari sekarang (Unix Timestamp)
-        const expiryDate = Math.floor(Date.now() / 1000) + (365 * 24 * 60 * 60);
+        // Hitung Expired Date untuk Blockchain (Detik)
+        const expiryDateBlockchain = Math.floor(Date.now() / 1000) + (warrantyMonths * 30 * 24 * 3600);
 
-        // Panggil Blockchain Service (Fire and Forget / Await)
-        // Kita pakai await supaya log-nya kelihatan di terminal
-        const txHash = await blockchainService.createWarranty(serialNumber, expiryDate);
-        
-        if (txHash) {
-            console.log(`🎉 Garansi Barang ID ${itemDetail.product_id} Aman! Hash: ${txHash}`);
-            // TODO (Nanti): Update kolom 'blockchain_tx_hash' di tabel database kamu
+        try {
+            // Tembak ke Blockchain
+            const txHash = await blockchainService.createWarranty(serialNumber, expiryDateBlockchain);
+            
+            if (txHash) {
+                console.log(`🎉 Garansi Aman! Hash: ${txHash}`);
+
+                // Simpan ke Tabel digital_warranty 
+                await Warranty.create({
+                    transaction_id: newTransaction.id,
+                    user_id: userId,
+                    product_id: itemDetail.product_id,
+                    purchase_timestamp: new Date(), 
+                    warranty_period_months: warrantyMonths,
+                    blockchain_tx_hash: txHash,
+                    on_chain_status: 'confirmed', 
+                    status: 'active'
+                });
+
+                // Masukkan ke array result untuk response API
+                warrantyResults.push({
+                    product_id: itemDetail.product_id,
+                    serial_number: serialNumber,
+                    tx_hash: txHash
+                });
+            }
+        } catch (error) {
+            console.error(`⚠️ Gagal minting garansi untuk product ${itemDetail.product_id}:`, error.message);
+            // Lanjutkan proses tanpa menghentikan transaksi utama
         }
     }
 
-    return newTransaction;
+    // return data lengkap
+    return {
+        ...newTransaction,
+        warranties: warrantyResults
+    };
   },
 
   async getUserHistory(userId) {
