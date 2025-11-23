@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Admin - Add Product</title>
     <style>
-      body { font-family: Arial, sans-serif; max-width: 800px; margin: 2rem auto; }
+      body { font-family: Arial, sans-serif; max-width: 900px; margin: 2rem auto; }
       input, textarea { display: block; width: 100%; margin-bottom: .5rem; padding: .5rem }
       label { font-weight: bold; margin-top: .75rem }
-      img#preview { max-width: 200px; display:block; margin-top:.5rem }
+      .img-prev { width:120px; height:120px; object-fit:cover; margin:6px; border:1px solid #ddd; border-radius:8px }
     </style>
   </head>
   <body>
@@ -21,29 +21,26 @@
     </div>
 
     <form id="productForm">
-      <label for="name">Name</label>
+
+      <label>Name</label>
       <input id="name" required />
 
-      <label for="description">Description</label>
+      <label>Description</label>
       <textarea id="description"></textarea>
 
-      <label for="price">Price</label>
+      <label>Price</label>
       <input id="price" type="number" step="0.01" required />
 
-      <label for="color">Color</label>
-      <input id="color" />
+      <label>Color (comma separated)</label>
+      <input id="color" placeholder="red, black, blue" />
 
-      <label for="memory">Memory</label>
-      <input id="memory" />
+      <label>Memory (comma separated)</label>
+      <input id="memory" placeholder="64GB, 128GB, 256GB" />
 
-      <label for="image">Image (will upload directly to Cloudinary)</label>
-      <input id="image" type="file" accept="image/*" />
+      <label>Images (multiple upload)</label>
+      <input id="images" type="file" accept="image/*" multiple />
 
-      <input id="imageUrl" type="hidden" />
-      <div id="progressWrapper" style="display:none; width:100%; background:#eee; border-radius:4px; overflow:hidden; margin-top:.5rem">
-        <div id="uploadProgress" style="width:0%; height:18px; background:#4caf50; color:#fff; text-align:center; font-size:12px; line-height:18px;">0%</div>
-      </div>
-      <img id="preview" src="" alt="preview" style="display:none; max-width:200px; margin-top:.5rem" />
+      <div id="previewContainer" style="display:flex;flex-wrap:wrap;margin-top:10px"></div>
 
       <button type="submit">Create Product</button>
     </form>
@@ -52,189 +49,109 @@
     <h2>Products</h2>
     <div id="productsList">Loading products...</div>
 
-
     <script>
-      async function getCloudConfig() {
-        const res = await fetch('/api/config/cloudinary');
-        if (!res.ok) throw new Error('Failed to fetch cloudinary config');
-        return res.json();
+      async function getConfig() {
+        const r = await fetch('/api/config/cloudinary');
+        return r.json();
       }
 
-      document.getElementById('saveToken').addEventListener('click', (e) => {
-        e.preventDefault();
-        const t = document.getElementById('authToken').value.trim();
-        if (t) { localStorage.setItem('authToken', t); alert('Token saved to localStorage'); }
-      });
+      document.getElementById('saveToken').onclick = () => {
+        localStorage.setItem('authToken', document.getElementById('authToken').value.trim());
+        alert('Token saved');
+      };
 
-      (async function () {
-        let cfg = null;
-        try { cfg = await getCloudConfig(); } catch (e) { alert('Could not load Cloudinary config: ' + e.message); return; }
-
+      (async () => {
+        const cfg = await getConfig();
         const cloudName = cfg.name;
         const preset = cfg.preset;
 
-        const fileInput = document.getElementById('image');
-        fileInput.addEventListener('change', (ev) => {
-          const file = ev.target.files[0];
-          if (!file) return;
+        const imagesInput = document.getElementById('images');
+        const previewContainer = document.getElementById('previewContainer');
+        let uploadedImages = [];
 
-          const progressWrapper = document.getElementById('progressWrapper');
-          const progressBar = document.getElementById('uploadProgress');
-          const preview = document.getElementById('preview');
-          preview.style.display = 'none';
-          progressWrapper.style.display = 'block';
-          progressBar.style.width = '0%';
-          progressBar.textContent = '0%';
+        imagesInput.addEventListener('change', async (ev) => {
+          const files = ev.target.files;
+          uploadedImages = [];
+          previewContainer.innerHTML = "";
 
-          const fd = new FormData();
-          fd.append('file', file);
-          fd.append('upload_preset', preset);
+          for (const file of files) {
+            const fd = new FormData();
+            fd.append('file', file);
+            fd.append('upload_preset', preset);
 
-          const url = `https://api.cloudinary.com/v1_1/${cloudName}/upload`;
-          const xhr = new XMLHttpRequest();
-          xhr.open('POST', url);
-          xhr.upload.onprogress = function (e) {
-            if (e.lengthComputable) {
-              const percent = Math.round((e.loaded / e.total) * 100);
-              progressBar.style.width = percent + '%';
-              progressBar.textContent = percent + '%';
+            const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/upload`, {
+              method: 'POST',
+              body: fd
+            });
+
+            const data = await res.json();
+            if (data.secure_url) {
+              uploadedImages.push(data.secure_url);
+
+              const img = document.createElement('img');
+              img.src = data.secure_url;
+              img.className = "img-prev";
+              previewContainer.appendChild(img);
             }
-          };
-          xhr.onload = function () {
-            progressWrapper.style.display = 'none';
-            if (xhr.status >= 200 && xhr.status < 300) {
-              try {
-                const data = JSON.parse(xhr.responseText);
-                if (data.secure_url) {
-                  document.getElementById('imageUrl').value = data.secure_url;
-                  preview.src = data.secure_url;
-                  preview.style.display = 'block';
-                } else {
-                  console.error(data);
-                  alert('Upload failed — check console for details');
-                }
-              } catch (err) {
-                console.error(err);
-                alert('Upload parse error');
-              }
-            } else {
-              console.error(xhr.responseText);
-              alert('Upload failed: ' + xhr.statusText);
-            }
-          };
-          xhr.onerror = function () {
-            progressWrapper.style.display = 'none';
-            alert('Upload error');
-          };
-          xhr.send(fd);
+          }
         });
 
-        const productsListEl = document.getElementById('productsList');
-
         async function fetchProducts() {
-          productsListEl.textContent = 'Loading products...';
-          try {
-            const r = await fetch('/api/products');
-            const json = await r.json();
-            const products = json.products || [];
-            if (products.length === 0) {
-              productsListEl.innerHTML = '<em>No products yet</em>';
-              return;
-            }
+          const r = await fetch('/api/products');
+          const data = await r.json();
+          const list = document.getElementById('productsList');
 
-            const rows = products.map(p => {
-              return `
-                <div style="display:flex;align-items:center;margin:8px 0;border:1px solid #ddd;padding:8px;border-radius:6px">
-                  <img src="${p.image || ''}" style="width:80px;height:80px;object-fit:cover;margin-right:12px" />
-                  <div style="flex:1">
-                    <div style="font-weight:bold">${p.name}</div>
-                    <div style="color:#666">${p.memory || ''} • ${p.color || ''}</div>
-                    <div style="color:#111">Rp ${p.price || 0}</div>
-                  </div>
-                  <div>
-                    <button data-id="${p.id}" class="deleteBtn" style="background:#e74c3c;color:#fff;border:none;padding:8px 10px;border-radius:4px;cursor:pointer">Delete</button>
-                  </div>
+          list.innerHTML = data.products
+            .map(p => `
+              <div style="display:flex;border:1px solid #ddd;padding:10px;margin-bottom:8px">
+                <img src="${p.images?.[0] || ''}" style="width:80px;height:80px;object-fit:cover;margin-right:12px" />
+                <div style="flex:1">
+                  <b>${p.name}</b><br>
+                  <small>${(p.memory||[]).join(', ')} • ${(p.color||[]).join(', ')}</small><br>
+                  <b>Rp ${p.price}</b>
                 </div>
-              `;
-            }).join('');
-
-            productsListEl.innerHTML = rows;
-
-            // attach delete handlers
-            document.querySelectorAll('.deleteBtn').forEach(btn => {
-              btn.addEventListener('click', async (ev) => {
-                const id = ev.currentTarget.getAttribute('data-id');
-                if (!confirm('Delete this product?')) return;
-                const token = localStorage.getItem('authToken') || '';
-                try {
-                  const r = await fetch(`/api/products/${id}`, {
-                    method: 'DELETE',
-                    headers: {
-                      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-                    }
-                  });
-                  const res = await r.json();
-                  if (r.ok) {
-                    alert('Deleted');
-                    fetchProducts();
-                  } else {
-                    alert('Delete failed: ' + (res.error || JSON.stringify(res)));
-                  }
-                } catch (err) {
-                  console.error(err);
-                  alert('Request failed');
-                }
-              });
-            });
-          } catch (err) {
-            console.error(err);
-            productsListEl.textContent = 'Failed to load products';
-          }
+              </div>
+            `)
+            .join('');
         }
-
-        // initial load
         fetchProducts();
 
-        document.getElementById('productForm').addEventListener('submit', async (ev) => {
+        document.getElementById('productForm').onsubmit = async (ev) => {
           ev.preventDefault();
 
           const payload = {
             name: document.getElementById('name').value,
             description: document.getElementById('description').value,
-            price: parseFloat(document.getElementById('price').value) || 0,
-            color: document.getElementById('color').value,
-            memory: document.getElementById('memory').value,
-            image: document.getElementById('imageUrl').value
+            price: Number(document.getElementById('price').value),
+            color: document.getElementById('color').value.split(',').map(x => x.trim()).filter(Boolean),
+            memory: document.getElementById('memory').value.split(',').map(x => x.trim()).filter(Boolean),
+            images: uploadedImages
           };
 
-          if (!payload.image) { alert('Please upload an image first'); return; }
-
-          const token = localStorage.getItem('authToken') || '';
-
-          try {
-            const r = await fetch('/api/products', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-              },
-              body: JSON.stringify(payload)
-            });
-            const res = await r.json();
-            if (r.ok) {
-              alert('Product created');
-              console.log(res);
-              // refresh list
-              fetchProducts();
-            } else {
-              console.error(res);
-              alert('Error creating product: ' + (res.error || JSON.stringify(res)));
-            }
-          } catch (err) {
-            console.error(err);
-            alert('Request failed');
+          if (payload.images.length === 0) {
+            alert("Upload at least 1 image");
+            return;
           }
-        });
+
+          const token = localStorage.getItem('authToken') || "";
+
+          const r = await fetch('/api/products', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token ? { Authorization: `Bearer ${token}` } : {})
+            },
+            body: JSON.stringify(payload)
+          });
+
+          const res = await r.json();
+          if (r.ok) {
+            alert('Product created');
+            fetchProducts();
+          } else {
+            alert('Error: ' + res.error);
+          }
+        };
       })();
     </script>
   </body>
