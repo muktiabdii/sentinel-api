@@ -4,131 +4,119 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Admin - Add Product</title>
-    <script src="https://cdn.tailwindcss.com"></script>
     <style>
-      /* Tambahan CSS sedikit biar rapi */
-      .preview-img { object-fit: cover; border-radius: 4px; border: 1px solid #ddd; }
+      body { font-family: Arial, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
+      input, textarea { display: block; width: 100%; margin-bottom: .5rem; padding: .5rem; box-sizing: border-box; }
+      label { font-weight: bold; margin-top: .75rem; display: block; }
+      /* CSS Preview untuk banyak gambar */
+      .preview-container { display: flex; gap: 10px; flex-wrap: wrap; margin-top: .5rem; }
+      .preview-img { width: 80px; height: 80px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd; }
+      button { padding: 10px 20px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px; font-size: 16px; margin-top: 10px;}
+      button:disabled { background: #ccc; }
+      .deleteBtn { background: #dc3545; font-size: 12px; padding: 5px 10px; }
     </style>
   </head>
-  <body class="bg-slate-50 min-h-screen font-sans p-8">
-    
-    <div class="max-w-3xl mx-auto bg-white p-8 rounded-xl shadow-lg">
-      <h1 class="text-2xl font-bold mb-6 text-gray-800">Sentinel Admin</h1>
+  <body>
+    <h1>Add Product (Multi Variant)</h1>
 
-      <div>
-        <label class="block text-sm font-bold mb-1">Auth Token</label>
-        <div class="flex gap-2 mb-4">
-            <input id="authToken" class="border p-2 rounded w-full" placeholder="Paste token here" />
-            <button id="saveToken" class="bg-blue-600 text-white px-4 py-2 rounded">Save</button>
-        </div>
-      </div>
-
-      <form id="productForm" class="space-y-4">
-        <div>
-            <label class="block text-sm font-bold">Name</label>
-            <input id="name" required class="border p-2 rounded w-full" placeholder="iPhone 15 Pro" />
-        </div>
-
-        <div class="grid grid-cols-2 gap-4">
-            <div>
-                <label class="block text-sm font-bold">SKU</label>
-                <input id="sku" required class="border p-2 rounded w-full" placeholder="IP15-PRO" />
-            </div>
-            <div>
-                <label class="block text-sm font-bold">Price</label>
-                <input id="price" type="number" required class="border p-2 rounded w-full" />
-            </div>
-        </div>
-
-        <div>
-            <label class="block text-sm font-bold">Description</label>
-            <textarea id="description" class="border p-2 rounded w-full"></textarea>
-        </div>
-
-        <div class="grid grid-cols-2 gap-4">
-            <div>
-                <label class="block text-sm font-bold">Colors (Comma separated)</label>
-                <input id="color" class="border p-2 rounded w-full" placeholder="Red, Blue" />
-            </div>
-            <div>
-                <label class="block text-sm font-bold">Memory (Comma separated)</label>
-                <input id="memory" class="border p-2 rounded w-full" placeholder="128GB, 256GB" />
-            </div>
-        </div>
-
-        <div>
-            <label class="block text-sm font-bold">Warranty (Months)</label>
-            <input id="warranty" type="number" value="12" class="border p-2 rounded w-full" />
-        </div>
-
-        <div>
-            <label class="block text-sm font-bold">Images (Multiple)</label>
-            <input id="image" type="file" accept="image/*" multiple class="border p-2 rounded w-full" />
-            
-            <!-- Progress Bar -->
-            <div id="progressWrapper" class="hidden w-full bg-gray-200 rounded-full h-4 mt-2">
-                <div id="uploadProgress" class="bg-green-600 h-4 rounded-full text-xs text-white text-center" style="width: 0%">0%</div>
-            </div>
-            
-            <!-- Preview Container -->
-            <div id="previewContainer" class="flex gap-2 mt-2 flex-wrap"></div>
-        </div>
-
-        <button type="submit" id="submitBtn" class="w-full bg-green-600 text-white p-3 rounded font-bold hover:bg-green-700">Create Product</button>
-      </form>
-
-      <hr class="my-8" />
-      
-      <h2 class="text-xl font-bold mb-4">Products List</h2>
-      <div id="productsList" class="space-y-2">Loading products...</div>
+    <div>
+      <label for="authToken">Auth Token (paste JWT here)</label>
+      <input id="authToken" placeholder="Paste token here or set after login" />
+      <button id="saveToken">Save token</button>
     </div>
 
+    <form id="productForm">
+      <label for="name">Name</label>
+      <input id="name" required />
+
+      <label for="sku">SKU</label>
+      <input id="sku" required placeholder="Unique Code" />
+
+      <label for="description">Description</label>
+      <textarea id="description"></textarea>
+
+      <label for="price">Price</label>
+      <input id="price" type="number" step="0.01" required />
+
+      <!-- Update Placeholder -->
+      <label for="color">Colors (Pisahkan dengan koma)</label>
+      <input id="color" placeholder="Merah, Biru, Hijau" />
+
+      <label for="memory">Memory (Pisahkan dengan koma)</label>
+      <input id="memory" placeholder="128GB, 256GB" />
+
+      <label for="warranty">Warranty (Months)</label>
+      <input id="warranty" type="number" value="12" />
+
+      <!-- TAMBAHKAN 'multiple' DISINI -->
+      <label for="image">Images (Select multiple files)</label>
+      <input id="image" type="file" accept="image/*" multiple />
+
+      <!-- Progress & Preview Container -->
+      <div id="progressWrapper" style="display:none; width:100%; background:#eee; border-radius:4px; overflow:hidden; margin-top:.5rem">
+        <div id="uploadProgress" style="width:0%; height:18px; background:#4caf50; color:#fff; text-align:center; font-size:12px; line-height:18px;">0%</div>
+      </div>
+      <div id="previewContainer" class="preview-container"></div>
+
+      <button type="submit" id="submitBtn">Create Product</button>
+    </form>
+
+    <hr />
+    <h2>Products List</h2>
+    <div id="productsList">Loading products...</div>
+
     <script>
-      // 1. Setup Base URL yang Benar
-      const BASE_URL = window.location.hostname === 'localhost' ? 'http://localhost:5000/api' : '/api';
-      
+      // 1. AUTO DETECT BASE URL (Biar gak error 404 di Vercel)
+      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      const BASE_URL = isLocal ? 'http://localhost:5000/api' : '/api';
+
+      // Variable untuk menyimpan URL hasil upload
       let uploadedImageUrls = [];
 
-      // Save Token Helper
       document.getElementById('saveToken').addEventListener('click', (e) => {
         e.preventDefault();
         const t = document.getElementById('authToken').value.trim();
-        if (t) { localStorage.setItem('authToken', t); alert('Token saved!'); }
+        if (t) { localStorage.setItem('authToken', t); alert('Token saved to localStorage'); }
       });
-
-      // Load Token on Start
+      
+      // Load token saat refresh
       const savedToken = localStorage.getItem('authToken');
       if(savedToken) document.getElementById('authToken').value = savedToken;
 
       (async function () {
         
-        // --- UPLOAD LOGIC ---
+        // --- LOGIC BARU: SIGNED UPLOAD + MULTI FILE ---
         const fileInput = document.getElementById('image');
-        const previewContainer = document.getElementById('previewContainer');
         const progressWrapper = document.getElementById('progressWrapper');
         const progressBar = document.getElementById('uploadProgress');
+        const previewContainer = document.getElementById('previewContainer');
         const submitBtn = document.getElementById('submitBtn');
 
         fileInput.addEventListener('change', async (ev) => {
           const files = Array.from(ev.target.files);
           if (files.length === 0) return;
 
-          uploadedImageUrls = []; 
+          // Reset UI
+          uploadedImageUrls = [];
           previewContainer.innerHTML = '';
-          progressWrapper.classList.remove('hidden');
+          progressWrapper.style.display = 'block';
+          progressBar.style.width = '0%';
+          progressBar.textContent = '0%';
           submitBtn.disabled = true;
-          submitBtn.innerText = "Uploading images...";
+          submitBtn.textContent = "Uploading...";
 
           try {
-            // Minta Signature
+            // 1. Minta Signature ke Backend (GANTI dari /config/cloudinary ke /upload/signature)
+            // Ini yang bikin error "Unexpected token <" sebelumnya hilang
             const signRes = await fetch(`${BASE_URL}/upload/signature`);
             const signData = await signRes.json();
-            if (!signData.success) throw new Error("Failed to get signature");
             
+            if (!signData.success) throw new Error("Failed to get signature");
             const { signature, timestamp, cloudName, apiKey, folder } = signData.payload;
+
             let completedCount = 0;
 
-            // Upload Parallel
+            // 2. Upload Loop untuk setiap file
             const uploadPromises = files.map(async (file) => {
               const fd = new FormData();
               fd.append('file', file);
@@ -137,36 +125,46 @@
               fd.append('signature', signature);
               fd.append('folder', folder);
 
-              const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method: 'POST', body: fd });
+              const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+                method: 'POST',
+                body: fd
+              });
               const data = await res.json();
-              
+
               if (data.secure_url) {
+                // Update Progress Bar
                 completedCount++;
                 const percent = Math.round((completedCount / files.length) * 100);
                 progressBar.style.width = percent + '%';
                 progressBar.textContent = percent + '%';
 
+                // Tampilkan Preview Kecil
                 const img = document.createElement('img');
                 img.src = data.secure_url;
-                img.className = 'w-20 h-20 object-cover rounded border';
+                img.className = 'preview-img';
                 previewContainer.appendChild(img);
+
                 return data.secure_url;
+              } else {
+                throw new Error('Upload failed');
               }
-              throw new Error('Upload failed');
             });
 
+            // Tunggu semua selesai
             uploadedImageUrls = await Promise.all(uploadPromises);
+            console.log("Uploaded URLs:", uploadedImageUrls);
+            
             submitBtn.disabled = false;
-            submitBtn.innerText = "Create Product";
+            submitBtn.textContent = "Create Product";
 
           } catch (err) {
             console.error(err);
-            alert('Error uploading: ' + err.message);
+            alert('Upload Error: ' + err.message);
             submitBtn.disabled = false;
           }
         });
 
-        // --- FETCH PRODUCTS LOGIC ---
+        // --- LOAD PRODUCTS ---
         const productsListEl = document.getElementById('productsList');
 
         async function fetchProducts() {
@@ -175,44 +173,42 @@
             const r = await fetch(`${BASE_URL}/products`);
             const json = await r.json();
             
-            // 👇 PERBAIKAN UTAMA DISINI: Ganti json.products jadi json.data
+            // PERBAIKAN: Ambil dari json.data
             const products = json.data || []; 
             
             if (products.length === 0) {
-              productsListEl.innerHTML = '<em class="text-gray-500">No products yet</em>';
+              productsListEl.innerHTML = '<em>No products yet</em>';
               return;
             }
 
             const rows = products.map(p => {
-              // Handle Array/String image
+              // Handle Array Display
               const thumb = Array.isArray(p.image) ? p.image[0] : p.image;
-              
-              // Handle Array Colors/Memory untuk tampilan
-              // Cek apakah data dari DB itu array atau string
-              const colorDisplay = Array.isArray(p.color) ? p.color.join(', ') : p.color;
-              const memoryDisplay = Array.isArray(p.memory) ? p.memory.join(', ') : p.memory;
+              const colors = Array.isArray(p.color) ? p.color.join(', ') : p.color;
+              const mems = Array.isArray(p.memory) ? p.memory.join(', ') : p.memory;
 
               return `
-                <div class="flex items-center border p-3 rounded bg-gray-50">
-                  <img src="${thumb || ''}" class="w-16 h-16 object-cover rounded mr-4 bg-gray-200" />
-                  <div class="flex-1">
-                    <div class="font-bold text-lg">${p.name}</div>
-                    <div class="text-sm text-gray-600">${memoryDisplay || '-'} • ${colorDisplay || '-'}</div>
-                    <div class="text-blue-600 font-medium">Rp ${parseInt(p.price).toLocaleString()}</div>
+                <div style="display:flex;align-items:center;margin:8px 0;border:1px solid #ddd;padding:8px;border-radius:6px">
+                  <img src="${thumb || ''}" style="width:80px;height:80px;object-fit:cover;margin-right:12px" />
+                  <div style="flex:1">
+                    <div style="font-weight:bold">${p.name}</div>
+                    <div style="color:#666">${mems || '-'} • ${colors || '-'}</div>
+                    <div style="color:#111">Rp ${parseInt(p.price).toLocaleString()}</div>
                   </div>
-                  <button data-id="${p.id}" class="deleteBtn bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600">Delete</button>
+                  <div>
+                    <button data-id="${p.id}" class="deleteBtn" style="background:#e74c3c;color:#fff;border:none;padding:8px 10px;border-radius:4px;cursor:pointer">Delete</button>
+                  </div>
                 </div>
               `;
             }).join('');
 
             productsListEl.innerHTML = rows;
 
-            // Attach Delete Handlers
+            // Attach Delete
             document.querySelectorAll('.deleteBtn').forEach(btn => {
               btn.addEventListener('click', async (ev) => {
                 const id = ev.currentTarget.getAttribute('data-id');
-                if (!confirm('Delete this product?')) return;
-                
+                if (!confirm('Delete?')) return;
                 const token = localStorage.getItem('authToken') || '';
                 try {
                   const r = await fetch(`${BASE_URL}/products/${id}`, {
@@ -225,27 +221,25 @@
                 } catch (err) { alert('Request failed'); }
               });
             });
-
           } catch (err) {
             console.error(err);
-            productsListEl.textContent = 'Failed to load products. Check console.';
+            productsListEl.textContent = 'Failed to load products';
           }
         }
 
-        // Initial Load
         fetchProducts();
 
-        // --- SUBMIT FORM LOGIC ---
+        // --- SUBMIT FORM ---
         document.getElementById('productForm').addEventListener('submit', async (ev) => {
           ev.preventDefault();
 
           if (uploadedImageUrls.length === 0) { 
-            alert('Please select and upload images first'); 
-            return; 
+            alert('Please upload images first'); return; 
           }
 
-          const colorVal = document.getElementById('color').value;
-          const memVal = document.getElementById('memory').value;
+          // Logic Baru: Pecah String jadi Array
+          const colorStr = document.getElementById('color').value;
+          const memoryStr = document.getElementById('memory').value;
 
           const payload = {
             name: document.getElementById('name').value,
@@ -254,10 +248,11 @@
             price: parseFloat(document.getElementById('price').value) || 0,
             warranty_period_months: parseInt(document.getElementById('warranty').value) || 12,
             
-            // Convert String "A, B" -> Array ["A", "B"]
-            color: colorVal ? colorVal.split(',').map(s => s.trim()) : [],
-            memori: memVal ? memVal.split(',').map(s => s.trim()) : [],
+            // Convert ke Array
+            color: colorStr ? colorStr.split(',').map(s => s.trim()) : [],
+            memori: memoryStr ? memoryStr.split(',').map(s => s.trim()) : [],
             
+            // Kirim Array URL Gambar
             image: uploadedImageUrls 
           };
 
@@ -275,20 +270,23 @@
             const res = await r.json();
             
             if (r.ok) {
-              alert('Product created successfully!');
+              alert('Product created');
+              // Reset Form UI
               document.getElementById('productForm').reset();
               uploadedImageUrls = [];
               previewContainer.innerHTML = '';
               progressBar.style.width = '0%';
-              fetchProducts(); // Refresh list
+              
+              fetchProducts();
             } else {
+              console.error(res);
               alert('Error: ' + (res.message || JSON.stringify(res)));
             }
           } catch (err) {
+            console.error(err);
             alert('Request failed');
           }
         });
-
       })();
     </script>
   </body>
