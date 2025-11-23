@@ -1,12 +1,13 @@
-const User = require('../models/User');
-const cloudinaryService = require('./cloudinaryService');
+const User = require("../models/userModel");
+const bcrypt = require("bcrypt");
+const cloudinary = require("../config/cloudinary");
 
 module.exports = {
-    async getProfile(userId) {
-        return await User.findById(userId);
-    },
+  async getProfile(userId) {
+    return await User.findById(userId);
+  },
 
-    async editProfile(userId, data, file) {
+  async editProfile(userId, data, file) {
     const updateData = { ...data };
 
     // Handle password update

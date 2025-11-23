@@ -18,10 +18,10 @@ module.exports = {
       const updatedUser = await userService.editProfile(
         userId,
         req.body,
-        req.file
+        req.file // file dari multer
       );
 
-      res.json({ 
+      res.json({
         message: "Profile updated successfully",
         data: updatedUser
       });
@@ -29,4 +29,4 @@ module.exports = {
       res.status(400).json({ error: error.message });
     }
   }
-}
+};
