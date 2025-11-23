@@ -1,39 +1,38 @@
 const db = require('../config/db');
 
 const Product = {
-
-  // fetch all products
+  // Ambil semua produk
   findAll() {
+    // ambil kolom image, color, memori Array
     return db('products')
-      .select('id', 'image', 'name', 'memory', 'color', 'price');
+      .select('id', 'image', 'name', 'memory', 'color', 'price')
+      .orderBy('id', 'desc');
   },
 
-  // fetch product by id
+  // Ambil detail produk
   findById(id) {
     return db('products')
-      .select('id', 'image', 'name', 'description', 'price', 'color', 'memory')
+      .select('*')
       .where({ id })
       .first();
   },
 
-  // fetch multiple products by an array of ids
+  // Ambil beberapa produk (untuk transaksi)
   findByIds(ids) {
     return db('products')
       .whereIn('id', ids)
-      .select('id', 'price', 'name', 'sku', 'warranty_period_months'); 
-  }
-,
+      .select('id', 'price', 'name', 'sku', 'warranty_period_months', 'image'); 
+  },
+
+  // Create Produk Baru (Support Array)
   async create(productData) {
     return db('products')
       .insert(productData)
-      .returning(['id', 'image', 'name', 'description', 'price', 'color', 'memory']);
-  }
-,
+      .returning('*');
+  },
+
   async deleteById(id) {
-    return db('products')
-      .where({ id })
-      .del()
-      .returning(['id']);
+    return db('products').where({ id }).del().returning(['id']);
   }
 };
 
