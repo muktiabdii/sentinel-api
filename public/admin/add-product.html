@@ -3,211 +3,216 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Admin - Add Product</title>
+    <title>Admin - Add Product (Multi Support)</title>
     <style>
-      body { font-family: Arial, sans-serif; max-width: 800px; margin: 2rem auto; }
-      input, textarea { display: block; width: 100%; margin-bottom: .5rem; padding: .5rem }
-      label { font-weight: bold; margin-top: .75rem }
-      img#preview { max-width: 200px; display:block; margin-top:.5rem }
+      body { font-family: Arial, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
+      input, textarea { display: block; width: 100%; margin-bottom: .5rem; padding: .5rem; box-sizing: border-box; }
+      label { font-weight: bold; margin-top: .75rem; display: block; }
+      
+      /* Style untuk progress bar */
+      #progressWrapper { width:100%; background:#eee; border-radius:4px; overflow:hidden; margin-top:.5rem; display: none; }
+      #uploadProgress { width:0%; height:18px; background:#4caf50; color:#fff; text-align:center; font-size:12px; line-height:18px; transition: width 0.2s; }
+      
+      /* Style untuk preview multiple images */
+      .preview-container { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+      .preview-img { width: 80px; height: 80px; object-fit: cover; border: 1px solid #ddd; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
     </style>
   </head>
   <body>
     <h1>Add Product</h1>
 
-    <div>
-      <label for="authToken">Auth Token (paste JWT here)</label>
-      <input id="authToken" placeholder="Paste token here or set after login" />
-      <button id="saveToken">Save token</button>
+    <div style="background: #f9f9f9; padding: 10px; border-radius: 6px; border: 1px solid #eee;">
+      <label for="authToken" style="margin-top:0">Auth Token (JWT)</label>
+      <input id="authToken" placeholder="Paste token here or set automatically after login" />
+      <button id="saveToken">Save token to LocalStorage</button>
     </div>
 
-    <form id="productForm">
+    <form id="productForm" style="margin-top: 2rem;">
       <label for="name">Name</label>
-      <input id="name" required />
+      <input id="name" required placeholder="e.g. iPhone 15 Pro" />
 
       <label for="description">Description</label>
-      <textarea id="description"></textarea>
+      <textarea id="description" rows="3"></textarea>
 
-      <label for="price">Price</label>
-      <input id="price" type="number" step="0.01" required />
+      <label for="price">Price (IDR)</label>
+      <input id="price" type="number" step="0.01" required placeholder="e.g. 15000000" />
 
-      <label for="color">Color</label>
-      <input id="color" />
+      <label for="color">Colors (pisahkan dengan koma)</label>
+      <input id="color" placeholder="e.g. Titanium, Black, Blue" />
 
-      <label for="memory">Memory</label>
-      <input id="memory" />
+      <label for="memory">Memory Variants (pisahkan dengan koma)</label>
+      <input id="memory" placeholder="e.g. 128GB, 256GB, 512GB" />
 
-      <label for="image">Image (will upload directly to Cloudinary)</label>
-      <input id="image" type="file" accept="image/*" />
+      <label for="imageInput">Images (Select multiple files)</label>
+      <input id="imageInput" type="file" accept="image/*" multiple />
 
-      <input id="imageUrl" type="hidden" />
-      <div id="progressWrapper" style="display:none; width:100%; background:#eee; border-radius:4px; overflow:hidden; margin-top:.5rem">
-        <div id="uploadProgress" style="width:0%; height:18px; background:#4caf50; color:#fff; text-align:center; font-size:12px; line-height:18px;">0%</div>
+      <input id="imageUrls" type="hidden" />
+
+      <div id="progressWrapper">
+        <div id="uploadProgress">0%</div>
       </div>
-      <img id="preview" src="" alt="preview" style="display:none; max-width:200px; margin-top:.5rem" />
+      <div id="uploadStatusText" style="font-size: 0.8rem; color: #666; margin-top: 4px;"></div>
 
-      <button type="submit">Create Product</button>
+      <div id="previewContainer" class="preview-container"></div>
+
+      <button type="submit" style="margin-top:20px; padding:10px 20px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px; font-size: 16px;">Create Product</button>
     </form>
 
-    <hr />
-    <h2>Products</h2>
+    <hr style="margin: 2rem 0;" />
+    
+    <h2>Product List</h2>
     <div id="productsList">Loading products...</div>
 
 
     <script>
+      // 1. Konfigurasi dan Helper
       async function getCloudConfig() {
         const res = await fetch('/api/config/cloudinary');
         if (!res.ok) throw new Error('Failed to fetch cloudinary config');
         return res.json();
       }
 
+      // Helper: Parse JSON aman (untuk menangani string JSON dari DB di list view)
+      function safeJsonParse(str) {
+        try {
+          // Jika sudah array, kembalikan langsung
+          if (Array.isArray(str)) return str;
+          // Coba parse string
+          const parsed = JSON.parse(str);
+          // Jika hasil parse adalah array, kembalikan. Jika object/string tunggal, bungkus array.
+          return Array.isArray(parsed) ? parsed : [parsed];
+        } catch (e) {
+          // Jika error (misal format lama cuma string URL biasa), bungkus jadi array
+          return str ? [str] : [];
+        }
+      }
+
+      // 2. Auth Token Handler
       document.getElementById('saveToken').addEventListener('click', (e) => {
         e.preventDefault();
         const t = document.getElementById('authToken').value.trim();
         if (t) { localStorage.setItem('authToken', t); alert('Token saved to localStorage'); }
       });
+      // Auto fill jika ada di storage
+      const existingToken = localStorage.getItem('authToken');
+      if(existingToken) document.getElementById('authToken').value = existingToken;
 
+
+      // 3. Logic Utama
       (async function () {
         let cfg = null;
-        try { cfg = await getCloudConfig(); } catch (e) { alert('Could not load Cloudinary config: ' + e.message); return; }
+        try { cfg = await getCloudConfig(); } catch (e) { alert('Cloudinary Config Error: ' + e.message); return; }
 
         const cloudName = cfg.name;
         const preset = cfg.preset;
 
-        const fileInput = document.getElementById('image');
-        fileInput.addEventListener('change', (ev) => {
-          const file = ev.target.files[0];
-          if (!file) return;
+        const fileInput = document.getElementById('imageInput');
+        const previewContainer = document.getElementById('previewContainer');
+        const progressWrapper = document.getElementById('progressWrapper');
+        const progressBar = document.getElementById('uploadProgress');
+        const statusText = document.getElementById('uploadStatusText');
+        const hiddenInputUrls = document.getElementById('imageUrls');
 
-          const progressWrapper = document.getElementById('progressWrapper');
-          const progressBar = document.getElementById('uploadProgress');
-          const preview = document.getElementById('preview');
-          preview.style.display = 'none';
+        // --- HANDLER UPLOAD MULTIPLE ---
+        fileInput.addEventListener('change', async (ev) => {
+          const files = Array.from(ev.target.files);
+          if (files.length === 0) return;
+
+          // Reset UI
+          previewContainer.innerHTML = '';
+          hiddenInputUrls.value = '';
           progressWrapper.style.display = 'block';
           progressBar.style.width = '0%';
-          progressBar.textContent = '0%';
+          statusText.textContent = `Uploading 0/${files.length} images...`;
 
-          const fd = new FormData();
-          fd.append('file', file);
-          fd.append('upload_preset', preset);
+          const uploadedUrls = [];
+          let completedCount = 0;
 
-          const url = `https://api.cloudinary.com/v1_1/${cloudName}/upload`;
-          const xhr = new XMLHttpRequest();
-          xhr.open('POST', url);
-          xhr.upload.onprogress = function (e) {
-            if (e.lengthComputable) {
-              const percent = Math.round((e.loaded / e.total) * 100);
-              progressBar.style.width = percent + '%';
-              progressBar.textContent = percent + '%';
-            }
-          };
-          xhr.onload = function () {
-            progressWrapper.style.display = 'none';
-            if (xhr.status >= 200 && xhr.status < 300) {
-              try {
-                const data = JSON.parse(xhr.responseText);
-                if (data.secure_url) {
-                  document.getElementById('imageUrl').value = data.secure_url;
-                  preview.src = data.secure_url;
-                  preview.style.display = 'block';
+          // Fungsi Upload Satu File
+          const uploadSingle = (file) => {
+            return new Promise((resolve, reject) => {
+              const fd = new FormData();
+              fd.append('file', file);
+              fd.append('upload_preset', preset);
+              
+              const xhr = new XMLHttpRequest();
+              xhr.open('POST', `https://api.cloudinary.com/v1_1/${cloudName}/upload`);
+              
+              xhr.onload = () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                  const data = JSON.parse(xhr.responseText);
+                  resolve(data.secure_url);
                 } else {
-                  console.error(data);
-                  alert('Upload failed — check console for details');
+                  reject(xhr.statusText);
                 }
-              } catch (err) {
-                console.error(err);
-                alert('Upload parse error');
-              }
-            } else {
-              console.error(xhr.responseText);
-              alert('Upload failed: ' + xhr.statusText);
-            }
-          };
-          xhr.onerror = function () {
-            progressWrapper.style.display = 'none';
-            alert('Upload error');
-          };
-          xhr.send(fd);
-        });
-
-        const productsListEl = document.getElementById('productsList');
-
-        async function fetchProducts() {
-          productsListEl.textContent = 'Loading products...';
-          try {
-            const r = await fetch('/api/products');
-            const json = await r.json();
-            const products = json.products || [];
-            if (products.length === 0) {
-              productsListEl.innerHTML = '<em>No products yet</em>';
-              return;
-            }
-
-            const rows = products.map(p => {
-              return `
-                <div style="display:flex;align-items:center;margin:8px 0;border:1px solid #ddd;padding:8px;border-radius:6px">
-                  <img src="${p.image || ''}" style="width:80px;height:80px;object-fit:cover;margin-right:12px" />
-                  <div style="flex:1">
-                    <div style="font-weight:bold">${p.name}</div>
-                    <div style="color:#666">${p.memory || ''} • ${p.color || ''}</div>
-                    <div style="color:#111">Rp ${p.price || 0}</div>
-                  </div>
-                  <div>
-                    <button data-id="${p.id}" class="deleteBtn" style="background:#e74c3c;color:#fff;border:none;padding:8px 10px;border-radius:4px;cursor:pointer">Delete</button>
-                  </div>
-                </div>
-              `;
-            }).join('');
-
-            productsListEl.innerHTML = rows;
-
-            // attach delete handlers
-            document.querySelectorAll('.deleteBtn').forEach(btn => {
-              btn.addEventListener('click', async (ev) => {
-                const id = ev.currentTarget.getAttribute('data-id');
-                if (!confirm('Delete this product?')) return;
-                const token = localStorage.getItem('authToken') || '';
-                try {
-                  const r = await fetch(`/api/products/${id}`, {
-                    method: 'DELETE',
-                    headers: {
-                      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-                    }
-                  });
-                  const res = await r.json();
-                  if (r.ok) {
-                    alert('Deleted');
-                    fetchProducts();
-                  } else {
-                    alert('Delete failed: ' + (res.error || JSON.stringify(res)));
-                  }
-                } catch (err) {
-                  console.error(err);
-                  alert('Request failed');
-                }
-              });
+              };
+              xhr.onerror = () => reject('Network Error');
+              xhr.send(fd);
             });
+          };
+
+          // Jalankan Upload secara Paralel
+          try {
+            const promises = files.map(async (file) => {
+              const url = await uploadSingle(file);
+              uploadedUrls.push(url);
+              
+              // Update UI per file selesai
+              completedCount++;
+              const percent = Math.round((completedCount / files.length) * 100);
+              progressBar.style.width = `${percent}%`;
+              progressBar.textContent = `${percent}%`;
+              statusText.textContent = `Uploaded ${completedCount}/${files.length}`;
+
+              // Tambah ke preview langsung saat selesai
+              const img = document.createElement('img');
+              img.src = url;
+              img.className = 'preview-img';
+              previewContainer.appendChild(img);
+
+              return url;
+            });
+
+            await Promise.all(promises);
+
+            // Selesai semua
+            hiddenInputUrls.value = JSON.stringify(uploadedUrls); // Simpan sebagai JSON String
+            statusText.textContent = 'All uploads complete!';
+            statusText.style.color = 'green';
+
           } catch (err) {
             console.error(err);
-            productsListEl.textContent = 'Failed to load products';
+            statusText.textContent = 'Error uploading some files.';
+            statusText.style.color = 'red';
+            alert('Upload failed for some images');
           }
-        }
+        });
 
-        // initial load
-        fetchProducts();
 
+        // --- HANDLER SUBMIT FORM ---
         document.getElementById('productForm').addEventListener('submit', async (ev) => {
           ev.preventDefault();
+
+          const rawImages = hiddenInputUrls.value;
+          if (!rawImages) { alert('Please wait for image upload to finish'); return; }
+
+          // Helper split koma
+          const splitByComma = (str) => str ? str.split(',').map(s => s.trim()).filter(s => s) : [];
 
           const payload = {
             name: document.getElementById('name').value,
             description: document.getElementById('description').value,
             price: parseFloat(document.getElementById('price').value) || 0,
-            color: document.getElementById('color').value,
-            memory: document.getElementById('memory').value,
-            image: document.getElementById('imageUrl').value
+            
+            // Konversi string input "Red, Blue" -> Array ["Red", "Blue"]
+            color: splitByComma(document.getElementById('color').value),
+            
+            // Konversi string input "64GB, 128GB" -> Array
+            memory: splitByComma(document.getElementById('memory').value),
+            
+            // Parse JSON String URL balik jadi Array asli untuk dikirim ke API
+            images: JSON.parse(rawImages) 
           };
-
-          if (!payload.image) { alert('Please upload an image first'); return; }
 
           const token = localStorage.getItem('authToken') || '';
 
@@ -221,11 +226,17 @@
               body: JSON.stringify(payload)
             });
             const res = await r.json();
+            
             if (r.ok) {
-              alert('Product created');
-              console.log(res);
-              // refresh list
-              fetchProducts();
+              alert('Product created successfully!');
+              fetchProducts(); // Refresh list
+              
+              // Reset Form
+              document.getElementById('productForm').reset();
+              previewContainer.innerHTML = '';
+              hiddenInputUrls.value = '';
+              progressWrapper.style.display = 'none';
+              statusText.textContent = '';
             } else {
               console.error(res);
               alert('Error creating product: ' + (res.error || JSON.stringify(res)));
@@ -235,6 +246,90 @@
             alert('Request failed');
           }
         });
+
+
+        // --- LIST PRODUCTS ---
+        const productsListEl = document.getElementById('productsList');
+
+        async function fetchProducts() {
+          productsListEl.textContent = 'Loading products...';
+          try {
+            const r = await fetch('/api/products');
+            const json = await r.json();
+            const products = json.products || [];
+
+            if (products.length === 0) {
+              productsListEl.innerHTML = '<em>No products yet</em>';
+              return;
+            }
+
+            const rows = products.map(p => {
+              // Handle Images (Array atau String JSON)
+              // Kita ambil gambar pertama untuk thumbnail
+              let imagesArr = safeJsonParse(p.image); // p.image dari DB
+              let thumbUrl = imagesArr.length > 0 ? imagesArr[0] : 'https://via.placeholder.com/80?text=No+Img';
+
+              // Handle Color & Memory (Array atau String JSON)
+              let colorsArr = safeJsonParse(p.color);
+              let memoryArr = safeJsonParse(p.memory);
+
+              return `
+                <div style="display:flex; align-items:center; margin:8px 0; border:1px solid #ddd; padding:8px; border-radius:6px; background:#fff;">
+                  <img src="${thumbUrl}" style="width:80px; height:80px; object-fit:cover; margin-right:12px; border-radius:4px; background:#eee;" />
+                  
+                  <div style="flex:1">
+                    <div style="font-weight:bold; font-size:1.1em;">${p.name}</div>
+                    
+                    <div style="color:#666; font-size:0.9em; margin-top:2px;">
+                      <span style="background:#eee; padding:2px 6px; border-radius:4px;">${memoryArr.join(', ') || '-'}</span>
+                      <span style="background:#eee; padding:2px 6px; border-radius:4px;">${colorsArr.join(', ') || '-'}</span>
+                    </div>
+                    
+                    <div style="color:#2ecc71; font-weight:bold; margin-top:4px;">Rp ${parseInt(p.price).toLocaleString('id-ID')}</div>
+                  </div>
+                  
+                  <div>
+                    <button data-id="${p.id}" class="deleteBtn" style="background:#e74c3c; color:#fff; border:none; padding:8px 12px; border-radius:4px; cursor:pointer;">Delete</button>
+                  </div>
+                </div>
+              `;
+            }).join('');
+
+            productsListEl.innerHTML = rows;
+
+            // Attach delete handlers
+            document.querySelectorAll('.deleteBtn').forEach(btn => {
+              btn.addEventListener('click', async (ev) => {
+                const id = ev.currentTarget.getAttribute('data-id');
+                if (!confirm('Delete this product?')) return;
+                
+                const token = localStorage.getItem('authToken') || '';
+                try {
+                  const r = await fetch(`/api/products/${id}`, {
+                    method: 'DELETE',
+                    headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}) }
+                  });
+                  if (r.ok) {
+                    fetchProducts();
+                  } else {
+                    const res = await r.json();
+                    alert('Delete failed: ' + (res.error || 'Unknown error'));
+                  }
+                } catch (err) {
+                  alert('Delete request failed');
+                }
+              });
+            });
+
+          } catch (err) {
+            console.error(err);
+            productsListEl.textContent = 'Failed to load products. Check console.';
+          }
+        }
+
+        // Initial Load
+        fetchProducts();
+
       })();
     </script>
   </body>
