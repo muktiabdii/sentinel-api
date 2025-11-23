@@ -4,82 +4,105 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Admin - Add Product</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
-      body { font-family: Arial, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
-      input, textarea { display: block; width: 100%; margin-bottom: .5rem; padding: .5rem; box-sizing: border-box; }
-      label { font-weight: bold; margin-top: .75rem; display: block; }
-      .preview-container { display: flex; gap: 10px; flex-wrap: wrap; margin-top: .5rem; }
-      .preview-img { width: 80px; height: 80px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd; }
-      button { padding: 10px 20px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px; font-size: 16px; }
-      button:disabled { background: #ccc; }
-      .deleteBtn { background: #dc3545; font-size: 12px; padding: 5px 10px; }
+      /* Tambahan CSS sedikit biar rapi */
+      .preview-img { object-fit: cover; border-radius: 4px; border: 1px solid #ddd; }
     </style>
   </head>
-  <body>
-    <h1>Add Product (Multi Variant)</h1>
+  <body class="bg-slate-50 min-h-screen font-sans p-8">
+    
+    <div class="max-w-3xl mx-auto bg-white p-8 rounded-xl shadow-lg">
+      <h1 class="text-2xl font-bold mb-6 text-gray-800">Sentinel Admin</h1>
 
-    <div>
-      <label for="authToken">Auth Token (paste JWT here)</label>
-      <input id="authToken" placeholder="Paste token here or set after login" />
-      <button id="saveToken">Save token</button>
+      <div>
+        <label class="block text-sm font-bold mb-1">Auth Token</label>
+        <div class="flex gap-2 mb-4">
+            <input id="authToken" class="border p-2 rounded w-full" placeholder="Paste token here" />
+            <button id="saveToken" class="bg-blue-600 text-white px-4 py-2 rounded">Save</button>
+        </div>
+      </div>
+
+      <form id="productForm" class="space-y-4">
+        <div>
+            <label class="block text-sm font-bold">Name</label>
+            <input id="name" required class="border p-2 rounded w-full" placeholder="iPhone 15 Pro" />
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <label class="block text-sm font-bold">SKU</label>
+                <input id="sku" required class="border p-2 rounded w-full" placeholder="IP15-PRO" />
+            </div>
+            <div>
+                <label class="block text-sm font-bold">Price</label>
+                <input id="price" type="number" required class="border p-2 rounded w-full" />
+            </div>
+        </div>
+
+        <div>
+            <label class="block text-sm font-bold">Description</label>
+            <textarea id="description" class="border p-2 rounded w-full"></textarea>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <label class="block text-sm font-bold">Colors (Comma separated)</label>
+                <input id="color" class="border p-2 rounded w-full" placeholder="Red, Blue" />
+            </div>
+            <div>
+                <label class="block text-sm font-bold">Memory (Comma separated)</label>
+                <input id="memory" class="border p-2 rounded w-full" placeholder="128GB, 256GB" />
+            </div>
+        </div>
+
+        <div>
+            <label class="block text-sm font-bold">Warranty (Months)</label>
+            <input id="warranty" type="number" value="12" class="border p-2 rounded w-full" />
+        </div>
+
+        <div>
+            <label class="block text-sm font-bold">Images (Multiple)</label>
+            <input id="image" type="file" accept="image/*" multiple class="border p-2 rounded w-full" />
+            
+            <!-- Progress Bar -->
+            <div id="progressWrapper" class="hidden w-full bg-gray-200 rounded-full h-4 mt-2">
+                <div id="uploadProgress" class="bg-green-600 h-4 rounded-full text-xs text-white text-center" style="width: 0%">0%</div>
+            </div>
+            
+            <!-- Preview Container -->
+            <div id="previewContainer" class="flex gap-2 mt-2 flex-wrap"></div>
+        </div>
+
+        <button type="submit" id="submitBtn" class="w-full bg-green-600 text-white p-3 rounded font-bold hover:bg-green-700">Create Product</button>
+      </form>
+
+      <hr class="my-8" />
+      
+      <h2 class="text-xl font-bold mb-4">Products List</h2>
+      <div id="productsList" class="space-y-2">Loading products...</div>
     </div>
 
-    <form id="productForm">
-      <label for="name">Name</label>
-      <input id="name" required placeholder="e.g. iPhone 15 Pro" />
-
-      <label for="sku">SKU (Unique ID)</label>
-      <input id="sku" required placeholder="e.g. IP15-PRO" />
-
-      <label for="description">Description</label>
-      <textarea id="description"></textarea>
-
-      <label for="price">Price</label>
-      <input id="price" type="number" step="0.01" required />
-
-      <label for="color">Colors (Separate with comma)</label>
-      <input id="color" placeholder="Black, Blue, Natural Titanium" />
-
-      <label for="memory">Memory (Separate with comma)</label>
-      <input id="memory" placeholder="128GB, 256GB, 512GB" />
-
-      <label for="warranty">Warranty (Months)</label>
-      <input id="warranty" type="number" value="12" />
-
-      <!-- MULTIPLE FILE INPUT -->
-      <label for="image">Images (Select multiple)</label>
-      <input id="image" type="file" accept="image/*" multiple />
-
-      <!-- Progress & Preview -->
-      <div id="progressWrapper" style="display:none; width:100%; background:#eee; border-radius:4px; overflow:hidden; margin-top:.5rem">
-        <div id="uploadProgress" style="width:0%; height:18px; background:#4caf50; color:#fff; text-align:center; font-size:12px; line-height:18px;">0%</div>
-      </div>
-      <div id="previewContainer" class="preview-container"></div>
-
-      <br>
-      <button type="submit" id="submitBtn">Create Product</button>
-    </form>
-
-    <hr />
-    <h2>Products List</h2>
-    <div id="productsList">Loading products...</div>
-
     <script>
-      // Auto-detect URL (Local vs Vercel)
+      // 1. Setup Base URL yang Benar
       const BASE_URL = window.location.hostname === 'localhost' ? 'http://localhost:5000/api' : '/api';
       
-      // Array untuk menyimpan URL gambar yang sudah diupload
       let uploadedImageUrls = [];
 
+      // Save Token Helper
       document.getElementById('saveToken').addEventListener('click', (e) => {
         e.preventDefault();
         const t = document.getElementById('authToken').value.trim();
-        if (t) { localStorage.setItem('authToken', t); alert('Token saved to localStorage'); }
+        if (t) { localStorage.setItem('authToken', t); alert('Token saved!'); }
       });
+
+      // Load Token on Start
+      const savedToken = localStorage.getItem('authToken');
+      if(savedToken) document.getElementById('authToken').value = savedToken;
 
       (async function () {
         
-        // 1. Handle File Selection & Upload
+        // --- UPLOAD LOGIC ---
         const fileInput = document.getElementById('image');
         const previewContainer = document.getElementById('previewContainer');
         const progressWrapper = document.getElementById('progressWrapper');
@@ -90,24 +113,22 @@
           const files = Array.from(ev.target.files);
           if (files.length === 0) return;
 
-          // Reset state
           uploadedImageUrls = []; 
           previewContainer.innerHTML = '';
-          progressWrapper.style.display = 'block';
+          progressWrapper.classList.remove('hidden');
           submitBtn.disabled = true;
           submitBtn.innerText = "Uploading images...";
 
           try {
-            // A. Minta Signature ke Backend (Sekali saja cukup untuk batch ini)
+            // Minta Signature
             const signRes = await fetch(`${BASE_URL}/upload/signature`);
             const signData = await signRes.json();
-            
             if (!signData.success) throw new Error("Failed to get signature");
+            
             const { signature, timestamp, cloudName, apiKey, folder } = signData.payload;
-
             let completedCount = 0;
 
-            // B. Upload setiap file secara paralel
+            // Upload Parallel
             const uploadPromises = files.map(async (file) => {
               const fd = new FormData();
               fd.append('file', file);
@@ -116,47 +137,36 @@
               fd.append('signature', signature);
               fd.append('folder', folder);
 
-              const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
-                method: 'POST',
-                body: fd
-              });
-              
+              const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method: 'POST', body: fd });
               const data = await res.json();
+              
               if (data.secure_url) {
-                // Update Progress UI
                 completedCount++;
                 const percent = Math.round((completedCount / files.length) * 100);
                 progressBar.style.width = percent + '%';
                 progressBar.textContent = percent + '%';
 
-                // Tampilkan Preview
                 const img = document.createElement('img');
                 img.src = data.secure_url;
-                img.className = 'preview-img';
+                img.className = 'w-20 h-20 object-cover rounded border';
                 previewContainer.appendChild(img);
-
                 return data.secure_url;
-              } else {
-                throw new Error('Upload failed for one image');
               }
+              throw new Error('Upload failed');
             });
 
-            // Tunggu semua selesai
             uploadedImageUrls = await Promise.all(uploadPromises);
-            console.log("Uploaded URLs:", uploadedImageUrls);
-            
             submitBtn.disabled = false;
             submitBtn.innerText = "Create Product";
 
           } catch (err) {
             console.error(err);
-            alert('Error uploading images: ' + err.message);
+            alert('Error uploading: ' + err.message);
             submitBtn.disabled = false;
-            submitBtn.innerText = "Create Product";
           }
         });
 
-        // 2. Load Products List
+        // --- FETCH PRODUCTS LOGIC ---
         const productsListEl = document.getElementById('productsList');
 
         async function fetchProducts() {
@@ -164,37 +174,40 @@
           try {
             const r = await fetch(`${BASE_URL}/products`);
             const json = await r.json();
-            const products = json.data || []; // Sesuai response controller kamu (json.data)
+            
+            // 👇 PERBAIKAN UTAMA DISINI: Ganti json.products jadi json.data
+            const products = json.data || []; 
             
             if (products.length === 0) {
-              productsListEl.innerHTML = '<em>No products yet</em>';
+              productsListEl.innerHTML = '<em class="text-gray-500">No products yet</em>';
               return;
             }
 
             const rows = products.map(p => {
-              // Ambil gambar pertama jika array, atau string jika single
+              // Handle Array/String image
               const thumb = Array.isArray(p.image) ? p.image[0] : p.image;
-              const colors = Array.isArray(p.color) ? p.color.join(', ') : p.color;
-              const mems = Array.isArray(p.memory) ? p.memory.join(', ') : p.memory;
+              
+              // Handle Array Colors/Memory untuk tampilan
+              // Cek apakah data dari DB itu array atau string
+              const colorDisplay = Array.isArray(p.color) ? p.color.join(', ') : p.color;
+              const memoryDisplay = Array.isArray(p.memory) ? p.memory.join(', ') : p.memory;
 
               return `
-                <div style="display:flex;align-items:center;margin:8px 0;border:1px solid #ddd;padding:8px;border-radius:6px">
-                  <img src="${thumb || ''}" style="width:80px;height:80px;object-fit:cover;margin-right:12px" />
-                  <div style="flex:1">
-                    <div style="font-weight:bold">${p.name}</div>
-                    <div style="color:#666; font-size: 0.9em;">Color: ${colors || '-'} | Mem: ${mems || '-'}</div>
-                    <div style="color:#111; font-weight:500;">Rp ${parseInt(p.price).toLocaleString()}</div>
+                <div class="flex items-center border p-3 rounded bg-gray-50">
+                  <img src="${thumb || ''}" class="w-16 h-16 object-cover rounded mr-4 bg-gray-200" />
+                  <div class="flex-1">
+                    <div class="font-bold text-lg">${p.name}</div>
+                    <div class="text-sm text-gray-600">${memoryDisplay || '-'} • ${colorDisplay || '-'}</div>
+                    <div class="text-blue-600 font-medium">Rp ${parseInt(p.price).toLocaleString()}</div>
                   </div>
-                  <div>
-                    <button data-id="${p.id}" class="deleteBtn">Delete</button>
-                  </div>
+                  <button data-id="${p.id}" class="deleteBtn bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600">Delete</button>
                 </div>
               `;
             }).join('');
 
             productsListEl.innerHTML = rows;
 
-            // Attach delete handlers
+            // Attach Delete Handlers
             document.querySelectorAll('.deleteBtn').forEach(btn => {
               btn.addEventListener('click', async (ev) => {
                 const id = ev.currentTarget.getAttribute('data-id');
@@ -204,33 +217,25 @@
                 try {
                   const r = await fetch(`${BASE_URL}/products/${id}`, {
                     method: 'DELETE',
-                    headers: {
-                      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-                    }
+                    headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}) }
                   });
                   const res = await r.json();
-                  if (r.ok) {
-                    alert('Deleted');
-                    fetchProducts();
-                  } else {
-                    alert('Delete failed: ' + (res.error || JSON.stringify(res)));
-                  }
-                } catch (err) {
-                  console.error(err);
-                  alert('Request failed');
-                }
+                  if (r.ok) { fetchProducts(); } 
+                  else { alert('Delete failed: ' + (res.error || JSON.stringify(res))); }
+                } catch (err) { alert('Request failed'); }
               });
             });
+
           } catch (err) {
             console.error(err);
-            productsListEl.textContent = 'Failed to load products';
+            productsListEl.textContent = 'Failed to load products. Check console.';
           }
         }
 
         // Initial Load
         fetchProducts();
 
-        // 3. Handle Submit Form
+        // --- SUBMIT FORM LOGIC ---
         document.getElementById('productForm').addEventListener('submit', async (ev) => {
           ev.preventDefault();
 
@@ -239,9 +244,8 @@
             return; 
           }
 
-          // Ubah input "Merah, Biru" menjadi Array ["Merah", "Biru"]
-          const colorStr = document.getElementById('color').value;
-          const memoryStr = document.getElementById('memory').value;
+          const colorVal = document.getElementById('color').value;
+          const memVal = document.getElementById('memory').value;
 
           const payload = {
             name: document.getElementById('name').value,
@@ -250,11 +254,10 @@
             price: parseFloat(document.getElementById('price').value) || 0,
             warranty_period_months: parseInt(document.getElementById('warranty').value) || 12,
             
-            // Convert Comma Separated String to Array
-            color: colorStr.split(',').map(s => s.trim()).filter(s => s),
-            memori: memoryStr.split(',').map(s => s.trim()).filter(s => s),
+            // Convert String "A, B" -> Array ["A", "B"]
+            color: colorVal ? colorVal.split(',').map(s => s.trim()) : [],
+            memori: memVal ? memVal.split(',').map(s => s.trim()) : [],
             
-            // Kirim Array URL
             image: uploadedImageUrls 
           };
 
@@ -273,22 +276,19 @@
             
             if (r.ok) {
               alert('Product created successfully!');
-              // Reset form
               document.getElementById('productForm').reset();
               uploadedImageUrls = [];
               previewContainer.innerHTML = '';
               progressBar.style.width = '0%';
-              
-              fetchProducts();
+              fetchProducts(); // Refresh list
             } else {
-              console.error(res);
-              alert('Error creating product: ' + (res.message || JSON.stringify(res)));
+              alert('Error: ' + (res.message || JSON.stringify(res)));
             }
           } catch (err) {
-            console.error(err);
             alert('Request failed');
           }
         });
+
       })();
     </script>
   </body>
