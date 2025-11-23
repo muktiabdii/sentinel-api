@@ -1,35 +1,48 @@
 const Product = require('../models/productModel');
 
 module.exports = {
-  async getAllProducts() {
-    return await Product.findAll();
+  async createProduct(data) {
+    try {
+      const payload = { ...data };
+      if (!payload.sku) {
+        const rnd = Math.floor(Math.random() * 0xffff).toString(16).padStart(4, '0');
+        payload.sku = `SKU-${Date.now()}-${rnd}`;
+      }
+
+      const created = await Product.create(payload);
+      return created[0];
+    } catch (err) {
+      console.error('productService.createProduct error:', err);
+      throw new Error((err && (err.message || JSON.stringify(err))) || 'Failed to create product');
+    }
   },
 
-  async getDetailProduct(id) {
+  async getAll() {
+    return Product.findAll();
+  },
+
+  async findById(id) {
     const product = await Product.findById(id);
     if (!product) throw new Error('Product not found');
     return product;
   },
-
-  // Logic hapus
-  async deleteProduct(id) {
-      return await Product.deleteById(id);
+  
+  async getDetailProduct(id) {
+    const product = await Product.findById(id);
+    if (!product) {
+      throw new Error('Product not found');
+    }
+    return product;
   },
 
-  // Logic Tambah 
-  async addProduct(data) {
-    const productData = {
-      name: data.name,
-      sku: data.sku || `SKU-${Date.now()}`,
-      description: data.description,
-      price: data.price,
-      warranty_period_months: data.warranty_period_months || 12,
-      
-      image: Array.isArray(data.image) ? data.image : [data.image], 
-      color: Array.isArray(data.color) ? data.color : [data.color],
-      memory: Array.isArray(data.memory) ? data.memory : [data.memory]
-    };
-
-    return await Product.create(productData);
+  async deleteProduct(id) {
+    try {
+      const deleted = await Product.deleteById(id);
+      if (!deleted || deleted.length === 0) throw new Error('Product not found');
+      return deleted[0];
+    } catch (err) {
+      console.error('productService.deleteProduct error:', err);
+      throw new Error((err && (err.message || JSON.stringify(err))) || 'Failed to delete product');
+    }
   }
 };

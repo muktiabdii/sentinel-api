@@ -1,35 +1,39 @@
 const db = require('../config/db');
 
 const Product = {
+
+  // fetch all products
   findAll() {
-    // Pastikan select kolom yang benar
     return db('products')
-      .select('id', 'image', 'name', 'memori', 'color', 'price')
-      .orderBy('id', 'desc');
+      .select('id', 'image', 'name', 'memory', 'color', 'price');
   },
 
+  // fetch product by id
   findById(id) {
     return db('products')
-      .select('*')
+      .select('id', 'image', 'name', 'description', 'price', 'color', 'memory')
       .where({ id })
       .first();
   },
 
+  // fetch multiple products by an array of ids
   findByIds(ids) {
     return db('products')
       .whereIn('id', ids)
-      .select('id', 'price', 'name', 'sku', 'warranty_period_months', 'image'); 
-  },
-
+      .select('id', 'price', 'name', 'sku', 'warranty_period_months'); 
+  }
+,
   async create(productData) {
-    // Insert data (Knex otomatis handle array ke format {a,b} postgres jika tipe kolomnya array)
     return db('products')
       .insert(productData)
-      .returning('*');
-  },
-
+      .returning(['id', 'image', 'name', 'description', 'price', 'color', 'memory']);
+  }
+,
   async deleteById(id) {
-    return db('products').where({ id }).del().returning(['id']);
+    return db('products')
+      .where({ id })
+      .del()
+      .returning(['id']);
   }
 };
 

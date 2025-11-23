@@ -4,59 +4,55 @@ module.exports = {
   async create(req, res) {
     try {
       const { name, description, price, color, memory, image } = req.body;
+      if (!image) return res.status(400).json({ error: 'Image URL is required' });
 
-      if (!image || image.length === 0) {
-        return res.status(400).json({ error: 'At least one image is required' });
-      }
-
+      // Basic validation
       if (!name) return res.status(400).json({ error: 'Name is required' });
 
       const payload = {
         name: String(name),
         description: description ? String(description) : null,
-        price: price !== undefined ? Number(price) : 0,
-        color: color, 
-        memori: memory, 
-        image: image,  
+        price: price !== undefined && price !== null ? Number(price) : null,
+        color: color ? String(color) : null,
+        memory: memory ? String(memory) : null,
+        image: String(image),
       };
 
-      const newProduct = await productService.addProduct(payload); 
+      const newProduct = await productService.createProduct(payload);
 
-      res.status(201).json({ 
-        success: true, 
-        message: 'Product created', 
-        data: newProduct 
-      });
+      res.status(201).json({ message: 'Product created', product: newProduct });
     } catch (error) {
       console.error('Error creating product:', error);
-      res.status(500).json({ success: false, error: error.message });
+      // prefer message, fallback to full error
+      const msg = (error && (error.message || error.toString())) || 'Unknown error';
+      res.status(500).json({ error: msg });
     }
   },
 
   async list(req, res) {
     try {
-      const products = await productService.getAllProducts();
-      res.json({ success: true, data: products });
+      const products = await productService.getAll();
+      res.json({ products });
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
-  },
-
+  }
+  ,
   async getDetail(req, res) {
     try {
       const { id } = req.params;
-      const product = await productService.getDetailProduct(id);
-      res.json({ success: true, data: product });
+      const product = await productService.findById(id);
+      res.json({ product });
     } catch (err) {
       res.status(404).json({ error: err.message });
     }
-  },
-
+  }
+  ,
   async remove(req, res) {
     try {
       const { id } = req.params;
-      await productService.deleteProduct(id); 
-      res.json({ success: true, message: 'Product deleted' });
+      const deleted = await productService.deleteProduct(id);
+      res.json({ message: 'Product deleted', id: deleted.id || deleted });
     } catch (err) {
       res.status(400).json({ error: err.message });
     }
