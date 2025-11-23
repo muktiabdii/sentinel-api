@@ -1,15 +1,13 @@
 const db = require('../config/db');
 
 const Product = {
-  // Ambil semua produk
   findAll() {
-    // ambil kolom image, color, memori Array
+    // Pastikan select kolom yang benar
     return db('products')
-      .select('id', 'image', 'name', 'memory', 'color', 'price')
+      .select('id', 'image', 'name', 'memori', 'color', 'price')
       .orderBy('id', 'desc');
   },
 
-  // Ambil detail produk
   findById(id) {
     return db('products')
       .select('*')
@@ -17,15 +15,14 @@ const Product = {
       .first();
   },
 
-  // Ambil beberapa produk (untuk transaksi)
   findByIds(ids) {
     return db('products')
       .whereIn('id', ids)
       .select('id', 'price', 'name', 'sku', 'warranty_period_months', 'image'); 
   },
 
-  // Create Produk Baru (Support Array)
   async create(productData) {
+    // Insert data (Knex otomatis handle array ke format {a,b} postgres jika tipe kolomnya array)
     return db('products')
       .insert(productData)
       .returning('*');
