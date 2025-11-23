@@ -5,6 +5,7 @@ const productRoutes = require('./productRoutes');
 const transactionRoutes = require('./transactionRoutes');
 const cartRoutes = require('./cartRoutes');
 const warrantyRoutes = require('./warrantyRoutes');
+const userRoutes = require('./userRoutes');
 
 router.get('/', (req, res) => {
   res.send('✅ EventEase API running');
@@ -15,6 +16,7 @@ router.use('/products', productRoutes);
 router.use('/transactions', transactionRoutes);
 router.use('/cart', cartRoutes);
 router.use('/warranties', warrantyRoutes);
+router.use('/users', userRoutes);
 
 router.get('/config/cloudinary', (req, res) => {
   const { cloudinary } = require('../config/env');

@@ -13,6 +13,15 @@ const User = {
     return db('users')
       .insert(userData)
       .returning(['id', 'name', 'email', 'phone_number', 'profile_picture']);
+  },
+
+  async update(userId, data) {
+    const [updated] = await db("users")
+      .where({ id: userId })
+      .update(data)
+      .returning(["id", "name", "email", "phone_number", "profile_picture"]);
+
+    return updated;
   }
 };
 
