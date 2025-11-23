@@ -29,22 +29,12 @@ const Product = {
   },
 
   // create new product
-  async create(productData) {
+async create(productData) {
+    // clone data
     const dataToInsert = { ...productData };
-
-    if (Array.isArray(dataToInsert.color)) {
-      dataToInsert.color = JSON.stringify(dataToInsert.color);
-    }
-    if (Array.isArray(dataToInsert.memory)) {
-      dataToInsert.memory = JSON.stringify(dataToInsert.memory);
-    }
-    if (Array.isArray(dataToInsert.image)) {
-      dataToInsert.image = JSON.stringify(dataToInsert.image);
-    }
-
-    return db("products")
+    return db('products')
       .insert(dataToInsert)
-      .returning(["id", "image", "name", "price", "color", "memory"]);
+      .returning(['id', 'image', 'name', 'description', 'price', 'color', 'memory']);
   },
 
   async deleteById(id) {
