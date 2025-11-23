@@ -8,16 +8,15 @@
       body { font-family: Arial, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
       input, textarea { display: block; width: 100%; margin-bottom: .5rem; padding: .5rem; box-sizing: border-box; }
       label { font-weight: bold; margin-top: .75rem; display: block; }
-      /* CSS Preview untuk banyak gambar */
+      /* Style untuk preview banyak gambar */
       .preview-container { display: flex; gap: 10px; flex-wrap: wrap; margin-top: .5rem; }
       .preview-img { width: 80px; height: 80px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd; }
-      button { padding: 10px 20px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px; font-size: 16px; margin-top: 10px;}
-      button:disabled { background: #ccc; }
-      .deleteBtn { background: #dc3545; font-size: 12px; padding: 5px 10px; }
+      button { padding: 10px 20px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px; font-size: 16px; margin-top: 10px; }
+      .deleteBtn { background: #e74c3c; font-size: 12px; padding: 5px 10px; }
     </style>
   </head>
   <body>
-    <h1>Add Product (Multi Variant)</h1>
+    <h1>Add Product (Multi)</h1>
 
     <div>
       <label for="authToken">Auth Token (paste JWT here)</label>
@@ -29,8 +28,8 @@
       <label for="name">Name</label>
       <input id="name" required />
 
-      <label for="sku">SKU</label>
-      <input id="sku" required placeholder="Unique Code" />
+      <label for="sku">SKU (Unique)</label>
+      <input id="sku" required placeholder="IP15-PRO" />
 
       <label for="description">Description</label>
       <textarea id="description"></textarea>
@@ -38,9 +37,9 @@
       <label for="price">Price</label>
       <input id="price" type="number" step="0.01" required />
 
-      <!-- Update Placeholder -->
-      <label for="color">Colors (Pisahkan dengan koma)</label>
-      <input id="color" placeholder="Merah, Biru, Hijau" />
+      <!-- Input Multi Variant -->
+      <label for="color">Color (Pisahkan dengan koma)</label>
+      <input id="color" placeholder="Hitam, Putih, Biru" />
 
       <label for="memory">Memory (Pisahkan dengan koma)</label>
       <input id="memory" placeholder="128GB, 256GB" />
@@ -48,13 +47,13 @@
       <label for="warranty">Warranty (Months)</label>
       <input id="warranty" type="number" value="12" />
 
-      <!-- TAMBAHKAN 'multiple' DISINI -->
+      <!-- Input Multi Image -->
       <label for="image">Images (Select multiple files)</label>
       <input id="image" type="file" accept="image/*" multiple />
 
-      <!-- Progress & Preview Container -->
-      <div id="progressWrapper" style="display:none; width:100%; background:#eee; border-radius:4px; overflow:hidden; margin-top:.5rem">
-        <div id="uploadProgress" style="width:0%; height:18px; background:#4caf50; color:#fff; text-align:center; font-size:12px; line-height:18px;">0%</div>
+      <!-- Preview Container -->
+      <div id="progressWrapper" style="display:none; margin-top:.5rem; font-weight:bold; color:#4caf50;">
+        Uploading... <span id="uploadCount">0</span> images done.
       </div>
       <div id="previewContainer" class="preview-container"></div>
 
@@ -62,34 +61,67 @@
     </form>
 
     <hr />
-    <h2>Products List</h2>
+    <h2>Products</h2>
     <div id="productsList">Loading products...</div>
 
     <script>
-      // 1. AUTO DETECT BASE URL (Biar gak error 404 di Vercel)
-      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-      const BASE_URL = isLocal ? 'http://localhost:5000/api' : '/api';
+      let uploadedImageUrls = []; // Penampung URL gambar
 
-      // Variable untuk menyimpan URL hasil upload
-      let uploadedImageUrls = [];
+      // 1. Fetch Config Cloudinary
+      async function getCloudConfig() {
+        const res = await fetch('/api/config/cloudinary');
+        if (!res.ok) throw new Error('Failed to fetch cloudinary config (Check backend route!)');
+        return res.json();
+      }
 
       document.getElementById('saveToken').addEventListener('click', (e) => {
         e.preventDefault();
         const t = document.getElementById('authToken').value.trim();
-        if (t) { localStorage.setItem('authToken', t); alert('Token saved to localStorage'); }
+        if (t) { localStorage.setItem('authToken', t); alert('Token saved'); }
       });
-      
-      // Load token saat refresh
       const savedToken = localStorage.getItem('authToken');
       if(savedToken) document.getElementById('authToken').value = savedToken;
 
+      // Fungsi Helper Upload Promise
+      function uploadFileToCloudinary(file, preset, cloudName) {
+        return new Promise((resolve, reject) => {
+          const fd = new FormData();
+          fd.append('file', file);
+          fd.append('upload_preset', preset);
+
+          const xhr = new XMLHttpRequest();
+          xhr.open('POST', `https://api.cloudinary.com/v1_1/${cloudName}/upload`);
+          
+          xhr.onload = function () {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              const data = JSON.parse(xhr.responseText);
+              resolve(data.secure_url);
+            } else {
+              reject(xhr.statusText);
+            }
+          };
+          xhr.onerror = () => reject('Network Error');
+          xhr.send(fd);
+        });
+      }
+
       (async function () {
-        
-        // --- LOGIC BARU: SIGNED UPLOAD + MULTI FILE ---
+        let cfg = null;
+        try { 
+            cfg = await getCloudConfig(); 
+        } catch (e) { 
+            alert('Error: ' + e.message + '\n\nPastikan route /api/config/cloudinary ada di backend!'); 
+            return; 
+        }
+
+        const cloudName = cfg.name;
+        const preset = cfg.preset;
+
+        // 2. Handle File Selection (Multi Upload)
         const fileInput = document.getElementById('image');
-        const progressWrapper = document.getElementById('progressWrapper');
-        const progressBar = document.getElementById('uploadProgress');
         const previewContainer = document.getElementById('previewContainer');
+        const progressWrapper = document.getElementById('progressWrapper');
+        const uploadCountLabel = document.getElementById('uploadCount');
         const submitBtn = document.getElementById('submitBtn');
 
         fileInput.addEventListener('change', async (ev) => {
@@ -100,81 +132,47 @@
           uploadedImageUrls = [];
           previewContainer.innerHTML = '';
           progressWrapper.style.display = 'block';
-          progressBar.style.width = '0%';
-          progressBar.textContent = '0%';
           submitBtn.disabled = true;
-          submitBtn.textContent = "Uploading...";
+          submitBtn.innerText = "Uploading Images...";
 
           try {
-            // 1. Minta Signature ke Backend (GANTI dari /config/cloudinary ke /upload/signature)
-            // Ini yang bikin error "Unexpected token <" sebelumnya hilang
-            const signRes = await fetch(`${BASE_URL}/upload/signature`);
-            const signData = await signRes.json();
-            
-            if (!signData.success) throw new Error("Failed to get signature");
-            const { signature, timestamp, cloudName, apiKey, folder } = signData.payload;
-
-            let completedCount = 0;
-
-            // 2. Upload Loop untuk setiap file
             const uploadPromises = files.map(async (file) => {
-              const fd = new FormData();
-              fd.append('file', file);
-              fd.append('api_key', apiKey);
-              fd.append('timestamp', timestamp);
-              fd.append('signature', signature);
-              fd.append('folder', folder);
-
-              const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
-                method: 'POST',
-                body: fd
-              });
-              const data = await res.json();
-
-              if (data.secure_url) {
-                // Update Progress Bar
-                completedCount++;
-                const percent = Math.round((completedCount / files.length) * 100);
-                progressBar.style.width = percent + '%';
-                progressBar.textContent = percent + '%';
-
-                // Tampilkan Preview Kecil
+                const url = await uploadFileToCloudinary(file, preset, cloudName);
+                
+                // Update UI per file selesai
                 const img = document.createElement('img');
-                img.src = data.secure_url;
+                img.src = url;
                 img.className = 'preview-img';
                 previewContainer.appendChild(img);
-
-                return data.secure_url;
-              } else {
-                throw new Error('Upload failed');
-              }
+                
+                uploadedImageUrls.push(url);
+                uploadCountLabel.innerText = uploadedImageUrls.length + "/" + files.length;
+                return url;
             });
 
-            // Tunggu semua selesai
-            uploadedImageUrls = await Promise.all(uploadPromises);
-            console.log("Uploaded URLs:", uploadedImageUrls);
+            await Promise.all(uploadPromises);
             
             submitBtn.disabled = false;
-            submitBtn.textContent = "Create Product";
+            submitBtn.innerText = "Create Product";
+            progressWrapper.style.display = 'none';
 
           } catch (err) {
             console.error(err);
-            alert('Upload Error: ' + err.message);
+            alert('Upload Failed: ' + err);
             submitBtn.disabled = false;
           }
         });
 
-        // --- LOAD PRODUCTS ---
+        // 3. Load Products
         const productsListEl = document.getElementById('productsList');
 
         async function fetchProducts() {
           productsListEl.textContent = 'Loading products...';
           try {
-            const r = await fetch(`${BASE_URL}/products`);
+            const r = await fetch('/api/products');
             const json = await r.json();
-            
-            // PERBAIKAN: Ambil dari json.data
-            const products = json.data || []; 
+            // Backend baru return { success: true, data: [...] }
+            const products = json.data || json.products || []; 
             
             if (products.length === 0) {
               productsListEl.innerHTML = '<em>No products yet</em>';
@@ -189,14 +187,14 @@
 
               return `
                 <div style="display:flex;align-items:center;margin:8px 0;border:1px solid #ddd;padding:8px;border-radius:6px">
-                  <img src="${thumb || ''}" style="width:80px;height:80px;object-fit:cover;margin-right:12px" />
+                  <img src="${thumb || ''}" style="width:80px;height:80px;object-fit:cover;margin-right:12px; border-radius:4px" />
                   <div style="flex:1">
                     <div style="font-weight:bold">${p.name}</div>
                     <div style="color:#666">${mems || '-'} • ${colors || '-'}</div>
                     <div style="color:#111">Rp ${parseInt(p.price).toLocaleString()}</div>
                   </div>
                   <div>
-                    <button data-id="${p.id}" class="deleteBtn" style="background:#e74c3c;color:#fff;border:none;padding:8px 10px;border-radius:4px;cursor:pointer">Delete</button>
+                    <button data-id="${p.id}" class="deleteBtn" style="color:white;border:none;border-radius:4px;cursor:pointer">Delete</button>
                   </div>
                 </div>
               `;
@@ -204,32 +202,30 @@
 
             productsListEl.innerHTML = rows;
 
-            // Attach Delete
+            // Delete Handler
             document.querySelectorAll('.deleteBtn').forEach(btn => {
               btn.addEventListener('click', async (ev) => {
                 const id = ev.currentTarget.getAttribute('data-id');
                 if (!confirm('Delete?')) return;
                 const token = localStorage.getItem('authToken') || '';
                 try {
-                  const r = await fetch(`${BASE_URL}/products/${id}`, {
+                  const r = await fetch(`/api/products/${id}`, {
                     method: 'DELETE',
                     headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}) }
                   });
-                  const res = await r.json();
-                  if (r.ok) { fetchProducts(); } 
-                  else { alert('Delete failed: ' + (res.error || JSON.stringify(res))); }
+                  if (r.ok) fetchProducts();
+                  else alert('Failed to delete');
                 } catch (err) { alert('Request failed'); }
               });
             });
           } catch (err) {
-            console.error(err);
             productsListEl.textContent = 'Failed to load products';
           }
         }
 
         fetchProducts();
 
-        // --- SUBMIT FORM ---
+        // 4. Submit Product
         document.getElementById('productForm').addEventListener('submit', async (ev) => {
           ev.preventDefault();
 
@@ -237,29 +233,29 @@
             alert('Please upload images first'); return; 
           }
 
-          // Logic Baru: Pecah String jadi Array
+          // Parse Variant Strings to Array
           const colorStr = document.getElementById('color').value;
-          const memoryStr = document.getElementById('memory').value;
+          const memStr = document.getElementById('memory').value;
 
           const payload = {
             name: document.getElementById('name').value,
-            sku: document.getElementById('sku').value,
             description: document.getElementById('description').value,
             price: parseFloat(document.getElementById('price').value) || 0,
+            sku: document.getElementById('sku').value,
             warranty_period_months: parseInt(document.getElementById('warranty').value) || 12,
             
-            // Convert ke Array
+            // Convert ke Array untuk Backend
             color: colorStr ? colorStr.split(',').map(s => s.trim()) : [],
-            memori: memoryStr ? memoryStr.split(',').map(s => s.trim()) : [],
+            memory: memStr ? memStr.split(',').map(s => s.trim()) : [],
             
-            // Kirim Array URL Gambar
+            // Kirim Array URL
             image: uploadedImageUrls 
           };
 
           const token = localStorage.getItem('authToken') || '';
 
           try {
-            const r = await fetch(`${BASE_URL}/products`, {
+            const r = await fetch('/api/products', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -270,17 +266,13 @@
             const res = await r.json();
             
             if (r.ok) {
-              alert('Product created');
-              // Reset Form UI
+              alert('Product created!');
               document.getElementById('productForm').reset();
               uploadedImageUrls = [];
-              previewContainer.innerHTML = '';
-              progressBar.style.width = '0%';
-              
+              document.getElementById('previewContainer').innerHTML = '';
               fetchProducts();
             } else {
-              console.error(res);
-              alert('Error: ' + (res.message || JSON.stringify(res)));
+              alert('Error: ' + (res.error || res.message || JSON.stringify(res)));
             }
           } catch (err) {
             console.error(err);
