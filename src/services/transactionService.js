@@ -1,5 +1,6 @@
 const Transaction = require("../models/transactionModel");
 const Product = require("../models/productModel");
+const Warranty = require('../models/warrantyModel');
 const db = require("../config/db");
 const blockchainService = require("./blockchainService");
 const { snap } = require("./midtransService");
@@ -78,18 +79,7 @@ module.exports = {
       midtrans_token: snapResponse.token,
       midtrans_redirect_url: snapResponse.redirect_url,
     });
-
-    // Blockchain Warranty (opsional)
-    for (const itemDetail of transactionDetailsPayload) {
-      const serialNumber = `SN-${itemDetail.product_id}-${Date.now()}`;
-      const expiryDate = Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60;
-      const txHash = await blockchainService.createWarranty(
-        serialNumber,
-        expiryDate
-      );
-      console.log(`Warranty Created: `, txHash);
-    }
-
+    
     return {
       ...newTransaction,
       midtrans_token: snapResponse.token,
@@ -100,6 +90,7 @@ module.exports = {
   async handleMidtransNotification(payload) {
     const { order_id, transaction_status, fraud_status } = payload;
 
+    // 1. Tentukan Status Pembayaran
     let payment_status = "pending";
     if (
       (transaction_status === "capture" && fraud_status === "accept") ||
@@ -110,12 +101,66 @@ module.exports = {
       payment_status = "failed";
     }
 
-    // Update DB lewat model
+    // 2. Update Status di Database
+    // Kita perlu ambil data transaksi dulu untuk tahu user_id dan item-nya
+    const transaction = await db("transactions").where({ payment_gateway_references: order_id }).first();
+    
+    if (!transaction) throw new Error("Transaction not found from webhook");
+
+    // Update status pembayaran
     await Transaction.updatePaymentStatus(order_id, payment_status);
 
+    // 3. 🔥 LOGIC BARU: MINTING HANYA JIKA PAID & BELUM ADA GARANSI 🔥
     if (payment_status === 'paid') {
-      // 1 minute later -> in delivery
-      await Transaction.updateOrderStatus(order_id, 'completed');
+        
+        // Cek apakah garansi sudah pernah dibuat (biar gak double minting kalau webhook dikirim 2x)
+        const existingWarranty = await db('digital_warranty').where({ transaction_id: transaction.id }).first();
+        
+        if (!existingWarranty) {
+            console.log(`💰 Payment Paid for Order ${order_id}. Starting Minting...`);
+            
+            // Ambil item yang dibeli dari tabel detail
+            const items = await db("transaction_details")
+                .where({ transaction_id: transaction.id })
+                .select('*');
+
+            // Loop item dan minting satu-satu
+            for (const item of items) {
+                // Ambil info produk untuk durasi garansi
+                const product = await Product.findById(item.product_id);
+                const warrantyMonths = product.warranty_period_months || 12;
+
+                // Generate SN & Expiry
+                const serialNumber = `SN-${item.product_id}-${Date.now()}`;
+                const expiryDate = Math.floor(Date.now() / 1000) + (warrantyMonths * 30 * 24 * 3600);
+
+                try {
+                    // A. Minting ke Blockchain
+                    const txHash = await blockchainService.createWarranty(serialNumber, expiryDate);
+                    
+                    if (txHash) {
+                        console.log(`✅ Minted! Hash: ${txHash}`);
+                        
+                        // B. Simpan Bukti ke Database
+                        await Warranty.create({
+                            transaction_id: transaction.id,
+                            user_id: transaction.user_id,
+                            product_id: item.product_id,
+                            purchase_timestamp: new Date(),
+                            warranty_period_months: warrantyMonths,
+                            blockchain_tx_hash: txHash,
+                            on_chain_status: 'confirmed',
+                            status: 'active'
+                        });
+                    }
+                } catch (err) {
+                    console.error("❌ Minting Failed:", err);
+                }
+            }
+        }
+        
+        // Update status order jadi completed/processing
+        await Transaction.updateOrderStatus(order_id, 'completed');
     }
 
     return payment_status;
