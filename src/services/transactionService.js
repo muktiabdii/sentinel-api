@@ -1,17 +1,14 @@
 const Transaction = require("../models/transactionModel");
 const Product = require("../models/productModel");
-const Warranty = require('../models/warrantyModel');
+const Warranty = require("../models/warrantyModel");
 const db = require("../config/db");
 const blockchainService = require("./blockchainService");
 const { snap } = require("./midtransService");
 
 module.exports = {
   async createOrder(userId, { items, shipping_address, payment_method }) {
-    if (!items || items.length === 0) {
-      throw new Error("Cart is empty");
-    }
+    if (!items || items.length === 0) throw new Error("Cart is empty");
 
-    // Ambil data produk
     const productIds = items.map((i) => i.productId);
     const products = await Product.findByIds(productIds);
     const productMap = new Map(products.map((p) => [p.id, p]));
@@ -19,12 +16,12 @@ module.exports = {
     let totalAmount = 0;
     const transactionDetailsPayload = [];
 
+    const deliveryDate = new Date();
+    deliveryDate.setDate(deliveryDate.getDate() + 3); 
+
     for (const item of items) {
       const product = productMap.get(item.productId);
-
-      if (!product) {
-        throw new Error(`Product with ID ${item.productId} not found`);
-      }
+      if (!product) throw new Error(`Product ${item.productId} not found`);
 
       const subtotal = parseFloat(product.price) * item.quantity;
       totalAmount += subtotal;
@@ -33,11 +30,11 @@ module.exports = {
         product_id: product.id,
         quantity: item.quantity,
         price_at_purchase: product.price,
-        shipping_address,
+        shipping_address: shipping_address,
+        estimated_delivery: deliveryDate,
       });
     }
 
-    // Payload Header (DB)
     const transactionPayload = {
       user_id: userId,
       total_amount: totalAmount,
@@ -47,22 +44,17 @@ module.exports = {
       payment_gateway_references: `REF-${Date.now()}`,
     };
 
-    // Simpan database
     const newTransaction = await Transaction.createTransaction(
       transactionPayload,
       transactionDetailsPayload
     );
 
-    // === MIDTRANS SNAP INTEGRATION ===
     const snapPayload = {
       transaction_details: {
         order_id: newTransaction.payment_gateway_references,
         gross_amount: totalAmount,
       },
-      customer_details: {
-        user_id: userId,
-        shipping_address,
-      },
+      customer_details: { user_id: userId, shipping_address },
       item_details: items.map((item) => ({
         id: item.productId,
         price: productMap.get(item.productId).price,
@@ -70,16 +62,14 @@ module.exports = {
         name: productMap.get(item.productId).name,
       })),
     };
-
-    // Generate Token
+    
     const snapResponse = await snap.createTransaction(snapPayload);
 
-    // Simpan token ke DB
     await db("transactions").where({ id: newTransaction.id }).update({
       midtrans_token: snapResponse.token,
       midtrans_redirect_url: snapResponse.redirect_url,
     });
-    
+
     return {
       ...newTransaction,
       midtrans_token: snapResponse.token,
@@ -90,7 +80,6 @@ module.exports = {
   async handleMidtransNotification(payload) {
     const { order_id, transaction_status, fraud_status } = payload;
 
-    // 1. Tentukan Status Pembayaran
     let payment_status = "pending";
     if (
       (transaction_status === "capture" && fraud_status === "accept") ||
@@ -101,47 +90,27 @@ module.exports = {
       payment_status = "failed";
     }
 
-    // 2. Update Status di Database
-    // Kita perlu ambil data transaksi dulu untuk tahu user_id dan item-nya
     const transaction = await db("transactions").where({ payment_gateway_references: order_id }).first();
-    
     if (!transaction) throw new Error("Transaction not found from webhook");
 
-    // Update status pembayaran
     await Transaction.updatePaymentStatus(order_id, payment_status);
 
-    // 3. 🔥 LOGIC BARU: MINTING HANYA JIKA PAID & BELUM ADA GARANSI 🔥
     if (payment_status === 'paid') {
-        
-        // Cek apakah garansi sudah pernah dibuat (biar gak double minting kalau webhook dikirim 2x)
         const existingWarranty = await db('digital_warranty').where({ transaction_id: transaction.id }).first();
         
         if (!existingWarranty) {
-            console.log(`💰 Payment Paid for Order ${order_id}. Starting Minting...`);
-            
-            // Ambil item yang dibeli dari tabel detail
-            const items = await db("transaction_details")
-                .where({ transaction_id: transaction.id })
-                .select('*');
+            console.log(`💰 Paid. Minting...`);
+            const items = await db("transaction_details").where({ transaction_id: transaction.id }).select('*');
 
-            // Loop item dan minting satu-satu
             for (const item of items) {
-                // Ambil info produk untuk durasi garansi
                 const product = await Product.findById(item.product_id);
                 const warrantyMonths = product.warranty_period_months || 12;
-
-                // Generate SN & Expiry
                 const serialNumber = `SN-${item.product_id}-${Date.now()}`;
                 const expiryDate = Math.floor(Date.now() / 1000) + (warrantyMonths * 30 * 24 * 3600);
 
                 try {
-                    // A. Minting ke Blockchain
                     const txHash = await blockchainService.createWarranty(serialNumber, expiryDate);
-                    
                     if (txHash) {
-                        console.log(`✅ Minted! Hash: ${txHash}`);
-                        
-                        // B. Simpan Bukti ke Database
                         await Warranty.create({
                             transaction_id: transaction.id,
                             user_id: transaction.user_id,
@@ -158,21 +127,87 @@ module.exports = {
                 }
             }
         }
-        
-        // Update status order jadi completed/processing
         await Transaction.updateOrderStatus(order_id, 'completed');
     }
-
     return payment_status;
   },
 
   async getUserHistory(userId) {
-    return await Transaction.findByUserId(userId);
+    const history = await Transaction.findByUserId(userId);
+    
+    return history.map(trx => {
+        const firstItem = trx.items[0] || {};
+        let estimatedDelivery = firstItem.estimated_delivery;
+        
+        if (!estimatedDelivery && trx.created_at) {
+            const orderDate = new Date(trx.created_at);
+            orderDate.setDate(orderDate.getDate() + 3);
+            estimatedDelivery = orderDate;
+        }
+
+        return {
+            order_id: trx.id,
+            payment_ref: trx.payment_gateway_references,
+            order_date: trx.created_at,
+            recipient_name: trx.user_name, 
+            payment_status: trx.payment_status,
+            order_status: trx.order_status,
+            total_payment: parseFloat(trx.total_amount),
+            shipping_address: firstItem.shipping_address,
+            estimated_delivery: estimatedDelivery,
+            midtrans_token: trx.midtrans_token,
+            midtrans_redirect_url: trx.midtrans_redirect_url,
+            items: trx.items.map(item => ({
+                product_id: item.product_id || item.id,
+                product_name: item.product_name,
+                product_image: item.product_image,
+                product_sku: item.product_sku,
+                unit_price: parseFloat(item.price_at_purchase),
+                quantity: item.quantity,
+                subtotal: parseFloat(item.price_at_purchase) * item.quantity
+            }))
+        };
+    });
   },
 
   async getTransactionDetail(transactionId, userId) {
     const data = await Transaction.findDetailById(transactionId, userId);
+    
     if (!data) throw new Error("Transaction not found");
-    return data;
+
+    const firstItem = data.items[0] || {};
+    let estimatedDelivery = firstItem.estimated_delivery;
+
+    if (!estimatedDelivery) {
+        const orderDate = new Date(data.created_at);
+        orderDate.setDate(orderDate.getDate() + 3);
+        estimatedDelivery = orderDate;
+    }
+
+    const formattedDetail = {
+        order_id: data.id,
+        payment_ref: data.payment_gateway_references,
+        order_date: data.created_at,
+        recipient_name: data.user_name,
+        payment_status: data.payment_status,
+        order_status: data.order_status,
+        total_payment: parseFloat(data.total_amount),
+        shipping_address: firstItem.shipping_address,
+        estimated_delivery: estimatedDelivery,
+        midtrans_token: data.midtrans_token,
+        midtrans_redirect_url: data.midtrans_redirect_url,
+
+        items: data.items.map(item => ({
+            product_id: item.product_id,
+            product_name: item.product_name,
+            product_image: item.product_image,
+            product_sku: item.product_sku,
+            unit_price: parseFloat(item.price_at_purchase),
+            quantity: item.quantity,
+            subtotal: parseFloat(item.price_at_purchase) * item.quantity
+        }))
+    };
+
+    return formattedDetail;
   },
 };
