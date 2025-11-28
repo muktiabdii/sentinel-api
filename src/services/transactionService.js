@@ -65,11 +65,6 @@ module.exports = {
         quantity: item.quantity,
         name: productMap.get(item.productId).name,
       })),
-      callbacks: {
-        finish: "https://sentinel-gadget.vercel.app/account/orders",
-        error: "https://sentinel-gadget.vercel.app/account/orders",
-        pending: "https://sentinel-gadget.vercel.app/account/orders",
-      },
     };
 
     const snapResponse = await snap.createTransaction(snapPayload);
